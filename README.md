@@ -1,33 +1,36 @@
 # glowm
 
-Glow相当のMarkdown表示 + Mermaid PDF 出力を提供する軽量CLI。
+A Glow-like Markdown CLI with Mermaid rendering for iTerm2/Kitty and PDF output.
 
-## 使い方
+## Usage
 
 ```bash
-# Markdown を ANSI 表示
+# Render Markdown to ANSI output
 ./glowm README.md
 
-# STDIN から表示
+# Read from STDIN
 cat README.md | ./glowm -
 
-# Mermaid を PDF で出力
+# Export Mermaid diagrams to PDF
 ./glowm --pdf README.md > diagram.pdf
 ```
 
-## オプション
-- `-w` 文字幅
-- `-s` スタイル名 (dark/light/notty/auto) または JSON パス
-- `-p` ページャ表示
-- `--pdf` Mermaid を PDF で stdout に出力
+## Options
+- `-w` Word wrap width
+- `-s` Style name (dark/light/notty/auto) or JSON style path
+- `-p` Page output
+- `--pdf` Export Mermaid diagrams to PDF via stdout
 
-## 依存
+## Requirements
 - Go
-- Chrome/Chromium (Mermaid の PDF/画像生成時に必要)
+- Chrome/Chromium (required for Mermaid rendering and PDF export)
 
-## Mermaid 図の表示
-- iTerm2 / Kitty では Mermaid 図を画像として表示します。
-- それ以外のターミナルでは Mermaid ブロックをコード表示します。
+## Mermaid rendering
+- iTerm2 / Kitty: Mermaid diagrams are rendered inline as images
+- Other terminals: Mermaid blocks are shown as code
 
-## 参考
-- `docs/`
+## Install (Homebrew)
+```bash
+brew tap atani/tap
+brew install glowm
+```
