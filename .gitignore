@@ -1,0 +1,8 @@
+# binaries
+/glowm
+
+# OS
+.DS_Store
+
+# local
+/.serena
