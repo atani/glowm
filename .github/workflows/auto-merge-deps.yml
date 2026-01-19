@@ -18,6 +18,11 @@ jobs:
         with:
           go-version: "1.24"
 
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
       - name: Build
         run: go build ./...
 

@@ -26,7 +26,9 @@ func TestRenderPDF(t *testing.T) {
 func chromeAvailable() bool {
 	candidates := []string{
 		"google-chrome",
+		"google-chrome-stable",
 		"chromium",
+		"chromium-browser",
 		"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
 		"/Applications/Chromium.app/Contents/MacOS/Chromium",
 	}
