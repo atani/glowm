@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: glowm
+    main: ./cmd/glowm
+    binary: glowm
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: glowm
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  use: github-native
+
+brews:
+  - repository:
+      owner: atani
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/atani/glowm"
+    description: "Glow-like Markdown CLI with Mermaid diagrams (iTerm2/Kitty inline images + PDF)"
+    license: "MIT"
+    commit_author:
+      name: github-actions[bot]
+      email: github-actions[bot]@users.noreply.github.com
+    install: |
+      bin.install "glowm"
+    test: |
+      system "#{bin}/glowm", "--version"
