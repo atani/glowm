@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/atani/glowm/compare/v0.2.0...v0.2.1) (2026-01-19)
+
+
+### Bug Fixes
+
+* add fetch-tags to checkout for tag creation ([#9](https://github.com/atani/glowm/issues/9)) ([9b99ba8](https://github.com/atani/glowm/commit/9b99ba8ddf1aaf5f9668ad8c4fa3e4025b3d14ce))
+
 ## [0.2.0](https://github.com/atani/glowm/compare/v0.1.2...v0.2.0) (2026-01-19)
 
 
