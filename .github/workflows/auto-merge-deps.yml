@@ -1,6 +1,9 @@
 name: Auto-merge Dependabot PRs
 
-on: pull_request
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
 
 permissions:
   contents: write
@@ -8,29 +11,39 @@ permissions:
 
 jobs:
   auto-merge:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request' }}
     runs-on: ubuntu-latest
-    if: github.actor == 'dependabot[bot]'
     steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
+      - name: Get PR
+        id: pr
+        uses: actions/github-script@v7
         with:
-          go-version: "1.24"
+          script: |
+            const prs = context.payload.workflow_run.pull_requests;
+            if (!prs || prs.length === 0) {
+              core.setFailed('No PR found for workflow_run');
+              return;
+            }
+            const pr = prs[0];
+            core.setOutput('url', pr.html_url);
+            core.setOutput('number', pr.number);
 
-      - name: Setup Chrome
-        uses: browser-actions/setup-chrome@v2
+      - name: Ensure Dependabot PR
+        uses: actions/github-script@v7
         with:
-          chrome-version: stable
-
-      - name: Build
-        run: go build ./...
-
-      - name: Test
-        run: go test ./...
+          script: |
+            const prNumber = ${{ steps.pr.outputs.number }};
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+            if (pr.user.login !== 'dependabot[bot]') {
+              core.setFailed(`Not a Dependabot PR: ${pr.user.login}`);
+            }
 
       - name: Enable auto-merge
         run: gh pr merge --auto --squash "$PR_URL"
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_URL: ${{ steps.pr.outputs.url }}
           GH_TOKEN: ${{ secrets.DEPENDABOT_AUTO_MERGE_TOKEN }}
