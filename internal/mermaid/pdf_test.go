@@ -1,12 +1,16 @@
 package mermaid
 
 import (
+	"os"
 	"os/exec"
 	"runtime"
 	"testing"
 )
 
 func TestRenderPDF(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.Skip("skipping chrome-dependent test in CI environment")
+	}
 	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
 		t.Skip("chrome dependency not supported on this platform")
 	}
