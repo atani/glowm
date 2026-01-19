@@ -1,6 +1,6 @@
 # glowm
 
-A Glow-like Markdown CLI with Mermaid rendering for iTerm2/Kitty and PDF output.
+A [Glow](https://github.com/charmbracelet/glow)-like Markdown CLI with Mermaid rendering for iTerm2/Kitty and PDF output.
 
 ## Usage
 
