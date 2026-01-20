@@ -15,14 +15,27 @@ import (
 	"github.com/atani/glowm/internal/terminal"
 )
 
+// Version information (set by goreleaser ldflags)
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 	var (
-		width    = flag.Int("w", 0, "word wrap width")
-		style    = flag.String("s", "auto", "style name or JSON path")
-		usePager = flag.Bool("p", false, "page output")
-		pdf      = flag.Bool("pdf", false, "output mermaid diagrams as PDF to stdout")
+		width       = flag.Int("w", 0, "word wrap width")
+		style       = flag.String("s", "auto", "style name or JSON path")
+		usePager    = flag.Bool("p", false, "page output")
+		pdf         = flag.Bool("pdf", false, "output mermaid diagrams as PDF to stdout")
+		showVersion = flag.Bool("version", false, "show version information")
 	)
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("glowm %s (commit: %s, built: %s)\n", version, commit, date)
+		return
+	}
 
 	md, err := input.Read(flag.Args())
 	if err != nil {
