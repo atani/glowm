@@ -8,8 +8,6 @@ A [Glow](https://github.com/charmbracelet/glow)-like Markdown CLI with Mermaid r
   <source src="docs/demo.mp4" type="video/mp4">
 </video>
 
-[Download demo video](docs/demo.mp4)
-
 
 ## Usage
 
