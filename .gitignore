@@ -7,4 +7,5 @@
 # local
 /.serena
 
-/docs
+/docs/*
+!/docs/demo.mov

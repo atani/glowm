@@ -2,6 +2,11 @@
 
 A [Glow](https://github.com/charmbracelet/glow)-like Markdown CLI with Mermaid rendering for iTerm2/Kitty and PDF output.
 
+![glowm demo](docs/demo.gif)
+
+<video src="docs/demo.mov" controls muted playsinline></video>
+
+
 ## Usage
 
 ```bash
