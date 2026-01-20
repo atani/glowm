@@ -4,7 +4,11 @@ A [Glow](https://github.com/charmbracelet/glow)-like Markdown CLI with Mermaid r
 
 ![glowm demo](docs/demo.gif)
 
-<video src="docs/demo.mov" controls muted playsinline></video>
+<video controls muted playsinline>
+  <source src="docs/demo.mp4" type="video/mp4">
+</video>
+
+[Download demo video](docs/demo.mp4)
 
 
 ## Usage
