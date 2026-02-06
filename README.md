@@ -5,7 +5,6 @@ A [Glow](https://github.com/charmbracelet/glow)-like Markdown CLI with Mermaid r
 ![glowm demo](docs/demo.gif)
 ![glowm demo screenshot](docs/README-demo.png)
 
-
 ## Usage
 
 ```bash
@@ -20,20 +19,24 @@ cat README.md | ./glowm -
 ```
 
 ## Options
+
 - `-w` Word wrap width
 - `-s` Style name (dark/light/notty/auto) or JSON style path
 - `-p` Page output
 - `--pdf` Export Mermaid diagrams to PDF via stdout
 
 ## Requirements
+
 - Go
 - Chrome/Chromium (required for Mermaid rendering and PDF export)
 
 ## Mermaid rendering
+
 - iTerm2 / Kitty: Mermaid diagrams are rendered inline as images
 - Other terminals: Mermaid blocks are shown as code
 
 ## Install (Homebrew)
+
 ```bash
 brew tap atani/tap
 brew install glowm
