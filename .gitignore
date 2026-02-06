@@ -9,3 +9,7 @@
 
 /docs/*
 !/docs/README-demo.png
+!/docs/demo.gif
+
+# demo
+demo/node_modules/
