@@ -63,7 +63,7 @@ func Page(output string) error {
 }
 
 func terminalHeight() int {
-	h, _, err := term.GetSize(int(os.Stdout.Fd()))
+	_, h, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil || h <= 0 {
 		return 0
 	}
@@ -71,7 +71,7 @@ func terminalHeight() int {
 }
 
 func terminalWidth() int {
-	_, w, err := term.GetSize(int(os.Stdout.Fd()))
+	w, _, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil || w <= 0 {
 		return 0
 	}
