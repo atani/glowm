@@ -70,6 +70,14 @@ func terminalHeight() int {
 	return h
 }
 
+func terminalWidth() int {
+	_, w, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || w <= 0 {
+		return 0
+	}
+	return w
+}
+
 func openTTYReader() *os.File {
 	f, err := os.Open("/dev/tty")
 	if err != nil {
@@ -119,6 +127,11 @@ func (p *pagerState) redraw(w *bufio.Writer) {
 		}
 	}
 
+	width := terminalWidth()
+	if width <= 0 {
+		width = 80
+	}
+
 	fmt.Fprint(w, "\033[H\033[2J")
 	end := p.top + linesPerPage
 	if end > len(p.lines) {
@@ -129,6 +142,7 @@ func (p *pagerState) redraw(w *bufio.Writer) {
 		if p.lastSearch != "" {
 			line = highlightLine(line, p.plain[i], p.lastSearch)
 		}
+		line = trimANSIToWidth(line, width)
 		if i == p.cursor {
 			fmt.Fprint(w, "\033[7m")
 			fmt.Fprint(w, line)
@@ -154,8 +168,14 @@ func (p *pagerState) drawStatus(w *bufio.Writer) {
 	if status == "" {
 		status = fmt.Sprintf("glowm pager  %d/%d  (q quit, / ? search, n/N next/prev, * # word, gg/G top/bottom, ctrl-f/ctrl-b page, h/l col)", line, total)
 	}
+	width := terminalWidth()
+	if width <= 0 {
+		width = 80
+	}
 	fmt.Fprintf(w, "\033[%d;1H", p.height)
-	fmt.Fprintf(w, "\033[7m%s\033[0m", truncateStatus(status))
+	fmt.Fprint(w, "\033[7m")
+	fmt.Fprint(w, trimPlainToWidth(status, width))
+	fmt.Fprint(w, "\033[0m")
 	fmt.Fprint(w, "\r\033[K")
 }
 
@@ -704,4 +724,29 @@ func isWordChar(b byte) bool {
 		return true
 	}
 	return b == '_'
+}
+
+func trimPlainToWidth(s string, width int) string {
+	if width <= 0 {
+		return s
+	}
+	if len(s) <= width {
+		return s
+	}
+	return s[:width]
+}
+
+func trimANSIToWidth(s string, width int) string {
+	if width <= 0 {
+		return s
+	}
+	indexMap := visibleIndexMap(s)
+	if len(indexMap) <= width {
+		return s
+	}
+	cut := indexMap[width-1] + 1
+	if cut < 0 || cut > len(s) {
+		return s
+	}
+	return s[:cut]
 }
