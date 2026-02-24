@@ -26,6 +26,20 @@ cat README.md | ./glowm -
 - `--no-pager` Disable pager (pager is on by default for TTY)
 - `--pdf` Export Mermaid diagrams to PDF via stdout
 
+## Config
+
+glowm reads `~/.config/glowm/config.json` (or `$XDG_CONFIG_HOME/glowm/config.json`).
+
+Example:
+
+```json
+{
+  "pager": {
+    "mode": "vim"
+  }
+}
+```
+
 ## Requirements
 
 - Go

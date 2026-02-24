@@ -9,7 +9,114 @@ import (
 	"golang.org/x/term"
 )
 
+type Mode string
+
+const (
+	ModeMore Mode = "more"
+	ModeVim  Mode = "vim"
+)
+
 func Page(output string) error {
+	return PageWithMode(output, ModeMore)
+}
+
+func PageWithMode(output string, mode Mode) error {
+	switch mode {
+	case ModeVim:
+		return pageVim(output)
+	default:
+		return pageMore(output)
+	}
+}
+
+func terminalHeight() int {
+	_, h, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || h <= 0 {
+		return 0
+	}
+	return h
+}
+
+func terminalWidth() int {
+	w, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || w <= 0 {
+		return 0
+	}
+	return w
+}
+
+func openTTYReader() *os.File {
+	f, err := os.Open("/dev/tty")
+	if err != nil {
+		return os.Stdin
+	}
+	return f
+}
+
+func pageMore(output string) error {
+	if !term.IsTerminal(int(os.Stdout.Fd())) {
+		_, err := fmt.Fprint(os.Stdout, output)
+		return err
+	}
+
+	height := terminalHeight()
+	if height <= 0 {
+		_, err := fmt.Fprint(os.Stdout, output)
+		return err
+	}
+
+	lines := strings.Split(output, "\n")
+	reader := openTTYReader()
+	defer reader.Close()
+
+	bufReader := bufio.NewReader(reader)
+	writer := bufio.NewWriter(os.Stdout)
+	defer writer.Flush()
+
+	linesPerPage := height - 1
+	if linesPerPage <= 0 {
+		linesPerPage = 1
+	}
+
+	history := []int{0}
+	i := 0
+	for {
+		end := i + linesPerPage
+		if end > len(lines) {
+			end = len(lines)
+		}
+		for j := i; j < end; j++ {
+			fmt.Fprint(writer, "\r")
+			fmt.Fprint(writer, lines[j])
+			fmt.Fprint(writer, "\r\n")
+		}
+		if end >= len(lines) {
+			return nil
+		}
+
+		fmt.Fprint(writer, "--More--")
+		writer.Flush()
+		b, _ := bufReader.ReadByte()
+		fmt.Fprint(writer, "\r\033[K")
+
+		switch b {
+		case 'q', 'Q':
+			return nil
+		case 'b', 'B':
+			if len(history) > 1 {
+				history = history[:len(history)-1]
+				i = history[len(history)-1]
+			} else {
+				i = 0
+			}
+		default:
+			i = end
+			history = append(history, i)
+		}
+	}
+}
+
+func pageVim(output string) error {
 	if !term.IsTerminal(int(os.Stdout.Fd())) {
 		_, err := fmt.Fprint(os.Stdout, output)
 		return err
@@ -60,30 +167,6 @@ func Page(output string) error {
 	}
 	fmt.Fprint(writer, "\r\033[K")
 	return nil
-}
-
-func terminalHeight() int {
-	_, h, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil || h <= 0 {
-		return 0
-	}
-	return h
-}
-
-func terminalWidth() int {
-	w, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil || w <= 0 {
-		return 0
-	}
-	return w
-}
-
-func openTTYReader() *os.File {
-	f, err := os.Open("/dev/tty")
-	if err != nil {
-		return os.Stdin
-	}
-	return f
 }
 
 type pagerState struct {
