@@ -154,6 +154,7 @@ func (p *pagerState) drawStatus(w *bufio.Writer) {
 	if status == "" {
 		status = fmt.Sprintf("glowm pager  %d/%d  (q quit, / ? search, n/N next/prev, * # word, gg/G top/bottom, ctrl-f/ctrl-b page, h/l col)", line, total)
 	}
+	fmt.Fprintf(w, "\033[%d;1H", p.height)
 	fmt.Fprintf(w, "\033[7m%s\033[0m", truncateStatus(status))
 	fmt.Fprint(w, "\r\033[K")
 }
