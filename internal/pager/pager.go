@@ -144,15 +144,17 @@ func (p *pagerState) redraw(w *bufio.Writer) {
 		}
 		line = trimANSIToWidth(line, width)
 		if i == p.cursor {
-			fmt.Fprint(w, "\033[7m")
+			fmt.Fprint(w, "\r\033[7m")
 			fmt.Fprint(w, line)
-			fmt.Fprintln(w, "\033[0m")
+			fmt.Fprint(w, "\033[0m\r\n")
 		} else {
-			fmt.Fprintln(w, line)
+			fmt.Fprint(w, "\r")
+			fmt.Fprint(w, line)
+			fmt.Fprint(w, "\r\n")
 		}
 	}
 	for i := end - p.top; i < linesPerPage; i++ {
-		fmt.Fprintln(w, "")
+		fmt.Fprint(w, "\r\n")
 	}
 	p.drawStatus(w)
 	w.Flush()
