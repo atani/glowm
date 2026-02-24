@@ -78,9 +78,13 @@ func pageMore(output string) error {
 		linesPerPage = 1
 	}
 
-	history := []int{0}
 	i := 0
+	needClear := false
 	for {
+		if needClear {
+			fmt.Fprint(writer, "\033[H\033[2J")
+			needClear = false
+		}
 		end := i + linesPerPage
 		if end > len(lines) {
 			end = len(lines)
@@ -90,11 +94,13 @@ func pageMore(output string) error {
 			fmt.Fprint(writer, lines[j])
 			fmt.Fprint(writer, "\r\n")
 		}
-		if end >= len(lines) {
+		i = end
+		if i >= len(lines) {
 			return nil
 		}
 
-		fmt.Fprint(writer, "--More--")
+		percent := (i * 100) / len(lines)
+		fmt.Fprintf(writer, "--More--(%d%%)", percent)
 		writer.Flush()
 		b, _ := bufReader.ReadByte()
 		fmt.Fprint(writer, "\r\033[K")
@@ -103,15 +109,23 @@ func pageMore(output string) error {
 		case 'q', 'Q':
 			return nil
 		case 'b', 'B':
-			if len(history) > 1 {
-				history = history[:len(history)-1]
-				i = history[len(history)-1]
-			} else {
+			i -= linesPerPage * 2
+			if i < 0 {
 				i = 0
 			}
+			needClear = true
+		case '\r', '\n':
+			if i < len(lines) {
+				// show one more line
+				fmt.Fprint(writer, "\r")
+				fmt.Fprint(writer, lines[i])
+				fmt.Fprint(writer, "\r\n")
+				i++
+			}
+		case ' ':
+			// page forward (already printed one page)
 		default:
-			i = end
-			history = append(history, i)
+			// ignore other keys
 		}
 	}
 }
