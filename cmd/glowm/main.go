@@ -26,7 +26,8 @@ func main() {
 	var (
 		width       = flag.Int("w", 0, "word wrap width")
 		style       = flag.String("s", "auto", "style name or JSON path")
-		usePager    = flag.Bool("p", false, "page output")
+		usePager    = flag.Bool("p", false, "force pager output")
+		noPager     = flag.Bool("no-pager", false, "disable pager")
 		pdf         = flag.Bool("pdf", false, "output mermaid diagrams as PDF to stdout")
 		showVersion = flag.Bool("version", false, "show version information")
 	)
@@ -60,6 +61,9 @@ func main() {
 	stdoutTTY := terminal.StdoutIsTTY()
 	imageFormat := termimage.Detect()
 
+	usePagerDefault := stdoutTTY && !*noPager
+	usePagerFinal := *usePager || usePagerDefault
+
 	if stdoutTTY && imageFormat != termimage.FormatNone {
 		result := markdown.ExtractMermaidWithMarkers(md)
 		if len(result.Blocks) > 0 {
@@ -81,7 +85,7 @@ func main() {
 			}
 			output = termimage.ReplaceMarkersWithImages(output, result.Markers, images, imageFormat, w)
 
-			if *usePager {
+			if usePagerFinal {
 				if err := pager.Page(output); err != nil {
 					exitWithError(err)
 				}
@@ -111,7 +115,7 @@ func main() {
 		exitWithError(err)
 	}
 
-	if *usePager && stdoutTTY {
+	if usePagerFinal && stdoutTTY {
 		if err := pager.Page(output); err != nil {
 			exitWithError(err)
 		}
