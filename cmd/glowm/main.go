@@ -5,7 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/atani/glowm/internal/config"
 	"github.com/atani/glowm/internal/input"
 	"github.com/atani/glowm/internal/markdown"
 	"github.com/atani/glowm/internal/mermaid"
@@ -26,7 +28,8 @@ func main() {
 	var (
 		width       = flag.Int("w", 0, "word wrap width")
 		style       = flag.String("s", "auto", "style name or JSON path")
-		usePager    = flag.Bool("p", false, "page output")
+		usePager    = flag.Bool("p", false, "force pager output")
+		noPager     = flag.Bool("no-pager", false, "disable pager")
 		pdf         = flag.Bool("pdf", false, "output mermaid diagrams as PDF to stdout")
 		showVersion = flag.Bool("version", false, "show version information")
 	)
@@ -60,6 +63,18 @@ func main() {
 	stdoutTTY := terminal.StdoutIsTTY()
 	imageFormat := termimage.Detect()
 
+	cfg := config.Load()
+	pagerMode := pager.ModeMore
+	switch strings.ToLower(cfg.Pager.Mode) {
+	case config.PagerModeVim:
+		pagerMode = pager.ModeVim
+	case config.PagerModeMore:
+		pagerMode = pager.ModeMore
+	}
+
+	usePagerDefault := stdoutTTY && !*noPager
+	usePagerFinal := *usePager || usePagerDefault
+
 	if stdoutTTY && imageFormat != termimage.FormatNone {
 		result := markdown.ExtractMermaidWithMarkers(md)
 		if len(result.Blocks) > 0 {
@@ -81,8 +96,8 @@ func main() {
 			}
 			output = termimage.ReplaceMarkersWithImages(output, result.Markers, images, imageFormat, w)
 
-			if *usePager {
-				if err := pager.Page(output); err != nil {
+			if usePagerFinal {
+				if err := pager.PageWithMode(output, pagerMode); err != nil {
 					exitWithError(err)
 				}
 				return
@@ -111,8 +126,8 @@ func main() {
 		exitWithError(err)
 	}
 
-	if *usePager && stdoutTTY {
-		if err := pager.Page(output); err != nil {
+	if usePagerFinal && stdoutTTY {
+		if err := pager.PageWithMode(output, pagerMode); err != nil {
 			exitWithError(err)
 		}
 		return
