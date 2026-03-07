@@ -2,6 +2,8 @@ package markdown
 
 import (
 	"bufio"
+	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -14,44 +16,51 @@ type MermaidResult struct {
 	Markers  []string
 }
 
-func ExtractMermaid(md string, keepBlocks bool) MermaidResult {
+func ExtractMermaid(md string, keepBlocks bool) (MermaidResult, error) {
 	return extractMermaid(md, keepBlocks, false)
 }
 
-func ExtractMermaidWithMarkers(md string) MermaidResult {
+func ExtractMermaidWithMarkers(md string) (MermaidResult, error) {
 	return extractMermaid(md, false, true)
 }
 
-func extractMermaid(md string, keepBlocks bool, useMarkers bool) MermaidResult {
+func extractMermaid(md string, keepBlocks bool, useMarkers bool) (MermaidResult, error) {
 	var out strings.Builder
 	var blocks []string
 	var markers []string
 
 	scanner := bufio.NewScanner(strings.NewReader(md))
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	inFence := false
 	fence := ""
 	isMermaid := false
 	var current []string
 
+	// Deferred marker: only written to output when fence closes successfully.
+	var pendingLine string
+	var originalFenceLine string
+	markerIdx := -1
+
 	for scanner.Scan() {
 		line := scanner.Text()
 
 		if !inFence {
-			f, ok := fenceStart(line)
+			stripped := stripIndent(line)
+			f, ok := fenceStart(stripped)
 			if ok {
 				inFence = true
 				fence = f
-				info := strings.TrimSpace(strings.TrimPrefix(line, fence))
+				info := strings.TrimSpace(stripped[len(f):])
 				isMermaid = strings.HasPrefix(info, "mermaid")
 				if isMermaid && !keepBlocks {
+					originalFenceLine = line
 					if useMarkers {
-						marker := MarkerPrefix + itoa(len(markers))
+						marker := MarkerPrefix + strconv.Itoa(len(markers))
+						markerIdx = len(markers)
 						markers = append(markers, marker)
-						out.WriteString(marker)
-						out.WriteString("\n")
+						pendingLine = marker + "\n"
 					} else {
-						out.WriteString(Placeholder)
-						out.WriteString("\n")
+						pendingLine = Placeholder + "\n"
 					}
 				} else {
 					out.WriteString(line)
@@ -65,9 +74,14 @@ func extractMermaid(md string, keepBlocks bool, useMarkers bool) MermaidResult {
 		}
 
 		// in fence
-		if strings.HasPrefix(line, fence) {
+		if isFenceEnd(line, fence) {
 			if isMermaid {
 				blocks = append(blocks, strings.Join(current, "\n"))
+				if pendingLine != "" {
+					out.WriteString(pendingLine)
+					pendingLine = ""
+					originalFenceLine = ""
+				}
 			}
 			if !isMermaid || keepBlocks {
 				out.WriteString(line)
@@ -77,6 +91,7 @@ func extractMermaid(md string, keepBlocks bool, useMarkers bool) MermaidResult {
 			fence = ""
 			isMermaid = false
 			current = nil
+			markerIdx = -1
 			continue
 		}
 
@@ -93,33 +108,70 @@ func extractMermaid(md string, keepBlocks bool, useMarkers bool) MermaidResult {
 		out.WriteString("\n")
 	}
 
-	if inFence && isMermaid {
-		blocks = append(blocks, strings.Join(current, "\n"))
+	if err := scanner.Err(); err != nil {
+		return MermaidResult{}, fmt.Errorf("scanning markdown: %w", err)
 	}
 
-	return MermaidResult{Blocks: blocks, Markdown: out.String(), Markers: markers}
+	// Unclosed mermaid fence: discard the block, restore original content.
+	if inFence && isMermaid {
+		if useMarkers && markerIdx >= 0 {
+			markers = markers[:markerIdx]
+		}
+		pendingLine = ""
+		if !keepBlocks {
+			out.WriteString(originalFenceLine)
+			out.WriteString("\n")
+			for _, line := range current {
+				out.WriteString(line)
+				out.WriteString("\n")
+			}
+		}
+	}
+
+	return MermaidResult{Blocks: blocks, Markdown: out.String(), Markers: markers}, nil
 }
 
-func fenceStart(line string) (string, bool) {
-	if strings.HasPrefix(line, "```") {
-		return "```", true
+// stripIndent removes up to 3 leading spaces per CommonMark fence indentation rules.
+func stripIndent(line string) string {
+	n := 0
+	for n < len(line) && n < 3 && line[n] == ' ' {
+		n++
 	}
-	if strings.HasPrefix(line, "~~~") {
-		return "~~~", true
+	return line[n:]
+}
+
+// fenceStart detects the opening of a fenced code block and returns the
+// fence string (e.g. "```" or "~~~~") along with true if found.
+// The input line should already have leading indentation stripped.
+func fenceStart(line string) (string, bool) {
+	for _, ch := range []byte{'`', '~'} {
+		if len(line) >= 3 && line[0] == ch && line[1] == ch && line[2] == ch {
+			n := 3
+			for n < len(line) && line[n] == ch {
+				n++
+			}
+			return line[:n], true
+		}
 	}
 	return "", false
 }
 
-func itoa(i int) string {
-	if i == 0 {
-		return "0"
+// isFenceEnd checks whether line is a valid closing fence for the given
+// opening fence. Per CommonMark, the closing fence must consist solely of
+// the same character as the opening fence (with optional leading indentation
+// up to 3 spaces and optional trailing spaces) and be at least as long as
+// the opening fence.
+func isFenceEnd(line, fence string) bool {
+	stripped := stripIndent(line)
+	trimmed := strings.TrimRight(stripped, " ")
+	if len(trimmed) < len(fence) {
+		return false
 	}
-	var b [20]byte
-	n := len(b)
-	for i > 0 {
-		n--
-		b[n] = byte('0' + i%10)
-		i /= 10
+	ch := fence[0]
+	for i := 0; i < len(trimmed); i++ {
+		if trimmed[i] != ch {
+			return false
+		}
 	}
-	return string(b[n:])
+	return true
 }

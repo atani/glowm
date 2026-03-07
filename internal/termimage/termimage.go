@@ -3,6 +3,7 @@ package termimage
 import (
 	"encoding/base64"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -54,7 +55,7 @@ func encodeIterm2(png []byte, widthCells int) string {
 	b64 := base64.StdEncoding.EncodeToString(png)
 	meta := "inline=1;preserveAspectRatio=1"
 	if widthCells > 0 {
-		meta += ";width=" + itoa(widthCells)
+		meta += ";width=" + strconv.Itoa(widthCells)
 	}
 	return "\x1b]1337;File=" + meta + ":" + b64 + "\x07"
 }
@@ -68,39 +69,28 @@ func encodeKitty(png []byte, widthCells int) string {
 		if end > len(b64) {
 			end = len(b64)
 		}
-		more := 0
+		more := "0"
 		if end < len(b64) {
-			more = 1
+			more = "1"
 		}
-		b.WriteString("\x1b_Gf=100,a=T,")
-		if widthCells > 0 {
-			b.WriteString("s=")
-			b.WriteString(itoa(widthCells))
-			b.WriteString(",")
-		}
-		b.WriteString("m=")
-		if more == 1 {
-			b.WriteString("1")
+		if i == 0 {
+			// First chunk: include full control parameters.
+			b.WriteString("\x1b_Gf=100,a=T,")
+			if widthCells > 0 {
+				b.WriteString("c=")
+				b.WriteString(strconv.Itoa(widthCells))
+				b.WriteString(",")
+			}
+			b.WriteString("m=")
+			b.WriteString(more)
 		} else {
-			b.WriteString("0")
+			// Subsequent chunks: only continuation flag.
+			b.WriteString("\x1b_Gm=")
+			b.WriteString(more)
 		}
 		b.WriteString(";")
 		b.WriteString(b64[i:end])
 		b.WriteString("\x1b\\")
 	}
 	return b.String()
-}
-
-func itoa(i int) string {
-	if i == 0 {
-		return "0"
-	}
-	var b [20]byte
-	n := len(b)
-	for i > 0 {
-		n--
-		b[n] = byte('0' + i%10)
-		i /= 10
-	}
-	return string(b[n:])
 }

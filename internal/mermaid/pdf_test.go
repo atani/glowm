@@ -1,16 +1,13 @@
 package mermaid
 
 import (
-	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"testing"
 )
 
 func TestRenderPDF(t *testing.T) {
-	if os.Getenv("CI") != "" {
-		t.Skip("skipping chrome-dependent test in CI environment")
-	}
 	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
 		t.Skip("chrome dependency not supported on this platform")
 	}
@@ -24,6 +21,33 @@ func TestRenderPDF(t *testing.T) {
 	}
 	if len(pdf) < 4 || string(pdf[:4]) != "%PDF" {
 		t.Fatalf("expected PDF header, got %q", string(pdf[:4]))
+	}
+}
+
+func TestRenderPDF_MultipleDiagrams(t *testing.T) {
+	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
+		t.Skip("chrome dependency not supported on this platform")
+	}
+	if !chromeAvailable() {
+		t.Skip("chrome/chromium not available")
+	}
+
+	pdf, err := RenderPDF([]string{"flowchart TD\n  A-->B", "flowchart TD\n  C-->D"})
+	if err != nil {
+		t.Fatalf("render failed: %v", err)
+	}
+	if len(pdf) < 4 || string(pdf[:4]) != "%PDF" {
+		t.Fatalf("expected PDF header, got %q", string(pdf[:4]))
+	}
+}
+
+func TestRenderPDF_EmptyDiagrams(t *testing.T) {
+	_, err := RenderPDF(nil)
+	if err == nil {
+		t.Fatal("expected error for empty diagrams")
+	}
+	if !strings.Contains(err.Error(), "no mermaid blocks found") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

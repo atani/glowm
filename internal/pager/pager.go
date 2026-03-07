@@ -16,11 +16,24 @@ func Page(output string) error {
 		return err
 	}
 
-	lines := strings.Split(output, "\n")
-	reader := openTTYReader()
-	defer reader.Close()
+	ttyFile, err := os.Open("/dev/tty")
+	if err != nil {
+		// No TTY available — print without paging.
+		_, err := fmt.Fprint(os.Stdout, output)
+		return err
+	}
+	defer ttyFile.Close()
 
-	bufReader := bufio.NewReader(reader)
+	fd := int(ttyFile.Fd())
+	oldState, err := term.MakeRaw(fd)
+	if err != nil {
+		_, err := fmt.Fprint(os.Stdout, output)
+		return err
+	}
+	defer term.Restore(fd, oldState)
+
+	lines := strings.Split(output, "\n")
+	bufReader := bufio.NewReader(ttyFile)
 	writer := bufio.NewWriter(os.Stdout)
 	defer writer.Flush()
 
@@ -30,13 +43,14 @@ func Page(output string) error {
 	}
 
 	for i := 0; i < len(lines); i++ {
-		fmt.Fprintln(writer, lines[i])
+		fmt.Fprint(writer, lines[i])
+		fmt.Fprint(writer, "\r\n")
 		if (i+1)%linesPerPage == 0 && i < len(lines)-1 {
 			fmt.Fprint(writer, "--More--")
 			writer.Flush()
-			b, _ := bufReader.ReadByte()
+			b, err := bufReader.ReadByte()
 			fmt.Fprint(writer, "\r\033[K")
-			if b == 'q' || b == 'Q' {
+			if err != nil || b == 'q' || b == 'Q' {
 				return nil
 			}
 		}
@@ -45,17 +59,9 @@ func Page(output string) error {
 }
 
 func terminalHeight() int {
-	h, _, err := term.GetSize(int(os.Stdout.Fd()))
+	_, h, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil || h <= 0 {
 		return 0
 	}
 	return h
-}
-
-func openTTYReader() *os.File {
-	f, err := os.Open("/dev/tty")
-	if err != nil {
-		return os.Stdin
-	}
-	return f
 }

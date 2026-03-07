@@ -43,7 +43,10 @@ func main() {
 	}
 
 	if *pdf {
-		result := markdown.ExtractMermaid(md, false)
+		result, err := markdown.ExtractMermaid(md, false)
+		if err != nil {
+			exitWithError(err)
+		}
 		if len(result.Blocks) == 0 {
 			exitWithError(errors.New("no mermaid blocks found"))
 		}
@@ -61,41 +64,48 @@ func main() {
 	imageFormat := termimage.Detect()
 
 	if stdoutTTY && imageFormat != termimage.FormatNone {
-		result := markdown.ExtractMermaidWithMarkers(md)
+		result, err := markdown.ExtractMermaidWithMarkers(md)
+		if err != nil {
+			exitWithError(err)
+		}
 		if len(result.Blocks) > 0 {
 			w := *width
 			if w == 0 {
 				w = terminal.StdoutWidth(80)
 			}
-			images, err := mermaid.RenderPNGs(result.Blocks, w)
-			if err != nil {
-				exitWithError(err)
-			}
-			output, err := render.ANSI(result.Markdown, render.RenderOptions{
-				Width: w,
-				Style: *style,
-				TTY:   stdoutTTY,
-			})
-			if err != nil {
-				exitWithError(err)
-			}
-			output = termimage.ReplaceMarkersWithImages(output, result.Markers, images, imageFormat, w)
+			images, renderErr := mermaid.RenderPNGs(result.Blocks, w)
+			if renderErr == nil {
+				output, err := render.ANSI(result.Markdown, render.RenderOptions{
+					Width: w,
+					Style: *style,
+					TTY:   stdoutTTY,
+				})
+				if err != nil {
+					exitWithError(err)
+				}
+				output = termimage.ReplaceMarkersWithImages(output, result.Markers, images, imageFormat, w)
 
-			if *usePager {
-				if err := pager.Page(output); err != nil {
+				if *usePager {
+					if err := pager.Page(output); err != nil {
+						exitWithError(err)
+					}
+					return
+				}
+				if _, err := fmt.Fprint(os.Stdout, output); err != nil {
 					exitWithError(err)
 				}
 				return
 			}
-			if _, err := fmt.Fprint(os.Stdout, output); err != nil {
-				exitWithError(err)
-			}
-			return
+			// Mermaid rendering failed — fall through to text-only output.
+			fmt.Fprintf(os.Stderr, "warning: mermaid rendering failed: %v\n", renderErr)
 		}
 	}
 
 	keepBlocks := stdoutTTY
-	result := markdown.ExtractMermaid(md, keepBlocks)
+	result, err := markdown.ExtractMermaid(md, keepBlocks)
+	if err != nil {
+		exitWithError(err)
+	}
 
 	w := *width
 	if w == 0 {

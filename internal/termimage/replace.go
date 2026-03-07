@@ -43,10 +43,16 @@ func stripANSI(s string) string {
 		}
 		next := s[i+1]
 		if next == '[' {
+			// CSI sequence: ESC [ ... <letter>
 			i += 2
 			for i < len(s) {
 				ch := s[i]
 				if (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') {
+					break
+				}
+				if ch == 0x1b {
+					// Malformed: new escape before terminator.
+					i--
 					break
 				}
 				i++
@@ -54,6 +60,7 @@ func stripANSI(s string) string {
 			continue
 		}
 		if next == ']' {
+			// OSC sequence: ESC ] ... (BEL | ESC \)
 			i += 2
 			for i < len(s) {
 				if s[i] == 0x07 {
@@ -67,6 +74,27 @@ func stripANSI(s string) string {
 			}
 			continue
 		}
+		if next == '_' || next == 'P' || next == '^' {
+			// APC / DCS / PM sequence: ESC <type> ... ESC \
+			i += 2
+			for i < len(s) {
+				if s[i] == 0x1b && i+1 < len(s) && s[i+1] == '\\' {
+					i++
+					break
+				}
+				i++
+			}
+			continue
+		}
+		// Two-byte or three-byte escape sequences.
+		// ESC( ESC) ESC* ESC+ are followed by a character set designator byte.
+		if next == '(' || next == ')' || next == '*' || next == '+' {
+			i += 2 // skip ESC + type + designator
+			continue
+		}
+		// Other two-byte: ESC + single byte (e.g. ESC 7, ESC 8, ESC =).
+		i++
+		continue
 	}
 	return b.String()
 }
