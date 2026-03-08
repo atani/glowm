@@ -1,6 +1,7 @@
 package render
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -82,5 +83,65 @@ func TestANSI_MultipleURLsNotBroken(t *testing.T) {
 	}
 	if !strings.Contains(output, "glow/issues/286") {
 		t.Errorf("Second URL missing or broken in output:\n%s", output)
+	}
+}
+
+func TestFormatError_Nil(t *testing.T) {
+	if got := FormatError(nil); got != "" {
+		t.Errorf("expected empty string, got %q", got)
+	}
+}
+
+func TestFormatError_WithError(t *testing.T) {
+	got := FormatError(errors.New("boom"))
+	if got != "error: boom" {
+		t.Errorf("expected 'error: boom', got %q", got)
+	}
+}
+
+func TestANSI_DarkStyle(t *testing.T) {
+	md := "# Hello\n\nWorld\n"
+	output, err := ANSI(md, RenderOptions{Width: 80, Style: "dark", TTY: true})
+	if err != nil {
+		t.Fatalf("ANSI() error: %v", err)
+	}
+	if output == "" {
+		t.Fatal("expected non-empty output")
+	}
+	if !strings.Contains(output, "Hello") {
+		t.Fatal("expected heading text in output")
+	}
+}
+
+func TestANSI_LightStyle(t *testing.T) {
+	md := "# Hello\n\nWorld\n"
+	output, err := ANSI(md, RenderOptions{Width: 80, Style: "light", TTY: true})
+	if err != nil {
+		t.Fatalf("ANSI() error: %v", err)
+	}
+	if output == "" {
+		t.Fatal("expected non-empty output")
+	}
+	if !strings.Contains(output, "Hello") {
+		t.Fatal("expected heading text in output")
+	}
+}
+
+func TestANSI_InvalidStyleFile(t *testing.T) {
+	md := "# Hello\n"
+	_, err := ANSI(md, RenderOptions{Width: 80, Style: "/nonexistent/style.json", TTY: true})
+	if err == nil {
+		t.Fatal("expected error for invalid style file path")
+	}
+}
+
+func TestANSI_ZeroWidth(t *testing.T) {
+	md := "# Hello\n\nWorld\n"
+	output, err := ANSI(md, RenderOptions{Width: 0, Style: "notty", TTY: false})
+	if err != nil {
+		t.Fatalf("ANSI() error: %v", err)
+	}
+	if output == "" {
+		t.Fatal("expected non-empty output")
 	}
 }

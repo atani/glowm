@@ -29,13 +29,21 @@ jobs:
 
       - name: Tag major and minor versions
         if: ${{ steps.release.outputs.release_created }}
+        env:
+          MAJOR: ${{ steps.release.outputs.major }}
+          MINOR: ${{ steps.release.outputs.minor }}
+          TAG_NAME: ${{ steps.release.outputs.tag_name }}
         run: |
+          if [[ ! "$MAJOR" =~ ^[0-9]+$ ]] || [[ ! "$MINOR" =~ ^[0-9]+$ ]]; then
+            echo "Invalid version numbers: MAJOR=$MAJOR MINOR=$MINOR"
+            exit 1
+          fi
           git config user.name github-actions[bot]
           git config user.email github-actions[bot]@users.noreply.github.com
-          git tag -f v${{ steps.release.outputs.major }} ${{ steps.release.outputs.tag_name }}
-          git tag -f v${{ steps.release.outputs.major }}.${{ steps.release.outputs.minor }} ${{ steps.release.outputs.tag_name }}
-          git push origin v${{ steps.release.outputs.major }} --force
-          git push origin v${{ steps.release.outputs.major }}.${{ steps.release.outputs.minor }} --force
+          git tag -f "v${MAJOR}" "${TAG_NAME}"
+          git tag -f "v${MAJOR}.${MINOR}" "${TAG_NAME}"
+          git push origin "v${MAJOR}" --force
+          git push origin "v${MAJOR}.${MINOR}" --force
 
   goreleaser:
     needs: release-please

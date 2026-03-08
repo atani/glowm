@@ -2,9 +2,12 @@ package input
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 )
+
+const maxInputSize = 10 * 1024 * 1024 // 10 MB
 
 var ErrNoInput = errors.New("input is required")
 
@@ -21,6 +24,13 @@ func Read(args []string) (string, error) {
 	if args[0] == "-" {
 		return readStdin()
 	}
+	info, err := os.Stat(args[0])
+	if err != nil {
+		return "", err
+	}
+	if info.Size() > maxInputSize {
+		return "", fmt.Errorf("file too large: %d bytes (max %d)", info.Size(), maxInputSize)
+	}
 	b, err := os.ReadFile(args[0])
 	if err != nil {
 		return "", err
@@ -29,9 +39,12 @@ func Read(args []string) (string, error) {
 }
 
 func readStdin() (string, error) {
-	b, err := io.ReadAll(os.Stdin)
+	b, err := io.ReadAll(io.LimitReader(os.Stdin, maxInputSize+1))
 	if err != nil {
 		return "", err
+	}
+	if len(b) > maxInputSize {
+		return "", fmt.Errorf("stdin input too large (max %d bytes)", maxInputSize)
 	}
 	return string(b), nil
 }

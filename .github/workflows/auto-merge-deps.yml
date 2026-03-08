@@ -34,6 +34,10 @@ jobs:
               core.setFailed(`Not a Dependabot PR: ${pr.user.login}`);
               return;
             }
+            if (!pr.head.ref.startsWith('dependabot/')) {
+              core.setFailed(`Branch does not match dependabot pattern: ${pr.head.ref}`);
+              return;
+            }
             core.setOutput('number', prNumber);
 
       - name: Enable auto-merge
