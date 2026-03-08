@@ -32,6 +32,8 @@ jobs:
 
       - name: Test
         run: go test -race -coverprofile=coverage.out ./...
+        env:
+          GLOWM_CHROME_NO_SANDBOX: "1"
 
       - name: Check coverage
         run: |
