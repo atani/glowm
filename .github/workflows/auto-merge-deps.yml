@@ -31,11 +31,11 @@ jobs:
               pull_number: prNumber,
             });
             if (pr.user.login !== 'dependabot[bot]') {
-              core.setFailed(`Not a Dependabot PR: ${pr.user.login}`);
+              core.info(`Skipping: not a Dependabot PR (author: ${pr.user.login})`);
               return;
             }
             if (!pr.head.ref.startsWith('dependabot/')) {
-              core.setFailed(`Branch does not match dependabot pattern: ${pr.head.ref}`);
+              core.info(`Skipping: branch does not match dependabot pattern: ${pr.head.ref}`);
               return;
             }
             core.setOutput('number', prNumber);
