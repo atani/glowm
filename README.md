@@ -22,8 +22,8 @@ cat README.md | ./glowm -
 
 - `-w` Word wrap width
 - `-s` Style name (dark/light/notty/auto) or JSON style path
-- `-p` Force pager output
-- `--no-pager` Disable pager (pager is on by default for TTY)
+- `-p` Force pager output (overrides `--no-pager`)
+- `--no-pager` Disable default pager (pager is on by default for TTY)
 - `--pdf` Export Mermaid diagrams to PDF via stdout
 
 ## Config

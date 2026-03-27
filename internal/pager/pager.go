@@ -3,7 +3,8 @@ package pager
 import (
 	"fmt"
 	"os"
-	"strings"
+	"os/signal"
+	"syscall"
 
 	"golang.org/x/term"
 )
@@ -24,21 +25,6 @@ func ValidMode(m Mode) bool {
 	default:
 		return false
 	}
-}
-
-// ParseMode normalizes and validates a mode string.
-// Returns the mode and true if valid, or ModeMore and false if not.
-func ParseMode(s string) (Mode, bool) {
-	m := Mode(strings.ToLower(s))
-	if ValidMode(m) {
-		return m, true
-	}
-	return ModeMore, false
-}
-
-// Page displays output using the default more-style pager.
-func Page(output string) error {
-	return PageWithMode(output, ModeMore)
 }
 
 // PageWithMode displays output using the specified pager mode.
@@ -81,4 +67,30 @@ func openTTYReader() (*os.File, bool) {
 func printOutput(output string) error {
 	_, err := fmt.Fprint(os.Stdout, output)
 	return err
+}
+
+// setupSignalHandler installs a SIGINT/SIGTERM handler that restores
+// terminal state before exiting. Returns a cleanup function that must
+// be deferred to stop the handler and terminate its goroutine.
+func setupSignalHandler(fd int, oldState *term.State, extraCleanup func()) func() {
+	done := make(chan struct{})
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		select {
+		case <-sigCh:
+			// os.Exit bypasses defers, so perform critical cleanup here
+			if extraCleanup != nil {
+				extraCleanup()
+			}
+			term.Restore(fd, oldState)
+			os.Exit(0)
+		case <-done:
+			return
+		}
+	}()
+	return func() {
+		signal.Stop(sigCh)
+		close(done)
+	}
 }

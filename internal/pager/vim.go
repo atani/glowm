@@ -4,9 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 
 	"golang.org/x/term"
 )
@@ -37,17 +35,9 @@ func pageVim(output string) error {
 		return printOutput(output)
 	}
 	defer term.Restore(int(reader.Fd()), oldState)
-
-	// Restore terminal state on SIGINT/SIGTERM to prevent leaving raw mode
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigCh
+	defer setupSignalHandler(int(reader.Fd()), oldState, func() {
 		fmt.Fprint(os.Stdout, ansiAltScreenOff)
-		term.Restore(int(reader.Fd()), oldState)
-		os.Exit(0)
-	}()
-	defer signal.Stop(sigCh)
+	})()
 
 	bufReader := bufio.NewReader(reader)
 	writer := bufio.NewWriter(os.Stdout)
@@ -128,11 +118,11 @@ func (p *pagerState) redraw(w *bufio.Writer) {
 	for i := end - p.top; i < lpp; i++ {
 		fmt.Fprint(w, "\r\n")
 	}
-	p.drawStatus(w)
+	p.drawStatus(w, width)
 	w.Flush()
 }
 
-func (p *pagerState) drawStatus(w *bufio.Writer) {
+func (p *pagerState) drawStatus(w *bufio.Writer, width int) {
 	total := len(p.lines)
 	line := p.top + 1
 	if total == 0 {
@@ -144,10 +134,6 @@ func (p *pagerState) drawStatus(w *bufio.Writer) {
 			"glowm pager  %d/%d  (q quit, / ? search, n/N next/prev, * # word, gg/G top/bottom, ctrl-f/ctrl-b page)",
 			line, total,
 		)
-	}
-	width := terminalWidth()
-	if width <= 0 {
-		width = 80
 	}
 	fmt.Fprintf(w, "\033[%d;1H", p.height)
 	fmt.Fprint(w, ansiReverseVideo)
@@ -204,96 +190,63 @@ func (p *pagerState) handleKey(k key) bool {
 	case keySearch:
 		p.lastSearch = k.text
 		p.lastDir = dirForward
-		p.searchForward()
+		p.search(dirForward)
 	case keySearchBackward:
 		p.lastSearch = k.text
 		p.lastDir = dirBackward
-		p.searchBackward()
+		p.search(dirBackward)
 	case keySearchNext:
-		if p.lastDir == dirBackward {
-			p.searchBackward()
-		} else {
-			p.searchForward()
-		}
+		p.search(p.lastDir)
 	case keySearchPrev:
-		if p.lastDir == dirBackward {
-			p.searchForward()
-		} else {
-			p.searchBackward()
-		}
+		p.search(p.lastDir.reverse())
 	case keySearchWord:
-		word := p.wordUnderCursor()
-		if word != "" {
-			p.lastSearch = word
-			p.lastDir = dirForward
-			p.searchForward()
-		} else {
-			p.status = "no word under cursor"
-		}
+		p.searchWord(dirForward)
 	case keySearchWordBackward:
-		word := p.wordUnderCursor()
-		if word != "" {
-			p.lastSearch = word
-			p.lastDir = dirBackward
-			p.searchBackward()
-		} else {
-			p.status = "no word under cursor"
-		}
+		p.searchWord(dirBackward)
 	}
 	p.clampCursor()
 	return false
 }
 
-func (p *pagerState) searchForward() {
-	if p.lastSearch == "" || len(p.lines) == 0 {
-		p.status = "no previous search"
+func (p *pagerState) searchWord(dir searchDir) {
+	word := p.wordUnderCursor()
+	if word == "" {
+		p.status = "no word under cursor"
 		return
 	}
-	// Search forward from cursor+1
-	for i := p.cursor + 1; i < len(p.plain); i++ {
-		if strings.Contains(p.plain[i], p.lastSearch) {
-			p.top = i
-			p.cursor = i
-			p.status = ""
-			return
-		}
-	}
-	// Wrap around
-	for i := 0; i <= p.cursor; i++ {
-		if strings.Contains(p.plain[i], p.lastSearch) {
-			p.top = i
-			p.cursor = i
-			p.status = "search hit BOTTOM, continuing at TOP"
-			return
-		}
-	}
-	p.status = "pattern not found"
+	p.lastSearch = word
+	p.lastDir = dir
+	p.search(dir)
 }
 
-func (p *pagerState) searchBackward() {
+// search finds the next occurrence of lastSearch in the given direction,
+// wrapping around if needed.
+func (p *pagerState) search(dir searchDir) {
 	if p.lastSearch == "" || len(p.lines) == 0 {
 		p.status = "no previous search"
 		return
 	}
-	// Search backward from cursor-1
-	start := p.cursor - 1
-	if start >= len(p.plain) {
-		start = len(p.plain) - 1
+
+	n := len(p.plain)
+	step := 1
+	wrapMsg := "search hit BOTTOM, continuing at TOP"
+	if dir == dirBackward {
+		step = -1
+		wrapMsg = "search hit TOP, continuing at BOTTOM"
 	}
-	for i := start; i >= 0; i-- {
-		if strings.Contains(p.plain[i], p.lastSearch) {
-			p.top = i
-			p.cursor = i
+
+	// Search from cursor+step in the given direction
+	for i := 1; i < n; i++ {
+		idx := ((p.cursor + i*step) % n + n) % n
+		if strings.Contains(p.plain[idx], p.lastSearch) {
+			p.cursor = idx
 			p.status = ""
-			return
-		}
-	}
-	// Wrap around
-	for i := len(p.plain) - 1; i >= p.cursor; i-- {
-		if strings.Contains(p.plain[i], p.lastSearch) {
-			p.top = i
-			p.cursor = i
-			p.status = "search hit TOP, continuing at BOTTOM"
+			// Check if we wrapped around
+			if dir == dirForward && idx <= p.cursor-i*step {
+				p.status = wrapMsg
+			} else if dir == dirBackward && idx >= p.cursor-i*step {
+				p.status = wrapMsg
+			}
 			return
 		}
 	}
@@ -413,6 +366,13 @@ const (
 	dirBackward
 )
 
+func (d searchDir) reverse() searchDir {
+	if d == dirForward {
+		return dirBackward
+	}
+	return dirForward
+}
+
 func readKey(r *bufio.Reader, w *bufio.Writer, p *pagerState) key {
 	b, err := r.ReadByte()
 	if err != nil {
@@ -487,10 +447,14 @@ func readEscapeKey(r *bufio.Reader) key {
 }
 
 func readSearch(r *bufio.Reader, w *bufio.Writer, p *pagerState, prefix string) string {
+	width := terminalWidth()
+	if width <= 0 {
+		width = 80
+	}
 	var buf []byte
 	p.status = prefix
 	p.histIndex = len(p.history)
-	p.drawStatus(w)
+	p.drawStatus(w, width)
 	for {
 		b, err := r.ReadByte()
 		if err != nil {
@@ -505,9 +469,9 @@ func readSearch(r *bufio.Reader, w *bufio.Writer, p *pagerState, prefix string) 
 				buf = buf[:len(buf)-1]
 			}
 			p.status = prefix + string(buf)
-			p.drawStatus(w)
+			p.drawStatus(w, width)
 		case 0x1b:
-			handled, newBuf := handleSearchEscape(r, w, p, prefix, buf)
+			handled, newBuf := handleSearchEscape(r, w, p, prefix, buf, width)
 			if handled {
 				buf = newBuf
 				continue
@@ -518,7 +482,7 @@ func readSearch(r *bufio.Reader, w *bufio.Writer, p *pagerState, prefix string) 
 			if b >= 0x20 {
 				buf = append(buf, b)
 				p.status = prefix + string(buf)
-				p.drawStatus(w)
+				p.drawStatus(w, width)
 			}
 		}
 	}
@@ -527,7 +491,7 @@ func readSearch(r *bufio.Reader, w *bufio.Writer, p *pagerState, prefix string) 
 // handleSearchEscape processes escape sequences during search input.
 // Returns true and updated buffer if an arrow key was handled,
 // or false if the search should be cancelled.
-func handleSearchEscape(r *bufio.Reader, w *bufio.Writer, p *pagerState, prefix string, buf []byte) (bool, []byte) {
+func handleSearchEscape(r *bufio.Reader, w *bufio.Writer, p *pagerState, prefix string, buf []byte, width int) (bool, []byte) {
 	seq, _ := r.ReadByte()
 	if seq != '[' {
 		return false, buf
@@ -537,12 +501,12 @@ func handleSearchEscape(r *bufio.Reader, w *bufio.Writer, p *pagerState, prefix 
 	case 'A': // Up arrow - history prev
 		buf = p.historyPrev(buf)
 		p.status = prefix + string(buf)
-		p.drawStatus(w)
+		p.drawStatus(w, width)
 		return true, buf
 	case 'B': // Down arrow - history next
 		buf = p.historyNext(buf)
 		p.status = prefix + string(buf)
-		p.drawStatus(w)
+		p.drawStatus(w, width)
 		return true, buf
 	}
 	return false, buf

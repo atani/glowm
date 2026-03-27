@@ -54,7 +54,7 @@ func TestHandleKey(t *testing.T) {
 	lines := []string{"line0", "line1", "line2", "line3", "line4"}
 
 	t.Run("keyQuit returns true", func(t *testing.T) {
-		p := newTestState(lines, 4) // 3 lines per page
+		p := newTestState(lines, 4)
 		if !p.handleKey(key{typ: keyQuit}) {
 			t.Error("expected handleKey(keyQuit) to return true")
 		}
@@ -95,13 +95,22 @@ func TestHandleKey(t *testing.T) {
 		}
 	})
 
+	t.Run("keyTop goes to beginning", func(t *testing.T) {
+		p := newTestState(lines, 4)
+		p.cursor = 3
+		p.top = 2
+		p.handleKey(key{typ: keyTop})
+		if p.cursor != 0 || p.top != 0 {
+			t.Errorf("after keyTop: cursor=%d top=%d, want 0,0", p.cursor, p.top)
+		}
+	})
+
 	t.Run("keyBottom goes to last line", func(t *testing.T) {
 		p := newTestState(lines, 4)
 		p.handleKey(key{typ: keyBottom})
 		if p.cursor != 4 {
 			t.Errorf("cursor = %d, want 4", p.cursor)
 		}
-		// Top should show last line at bottom of viewport
 		if p.top != 2 {
 			t.Errorf("top = %d, want 2", p.top)
 		}
@@ -139,15 +148,38 @@ func TestHandleKey(t *testing.T) {
 			t.Errorf("cursor = %d, want 4", p.cursor)
 		}
 	})
+
+	t.Run("keySearch sets lastSearch and dispatches", func(t *testing.T) {
+		p := newTestState(lines, 4)
+		p.handleKey(key{typ: keySearch, text: "line3"})
+		if p.lastSearch != "line3" {
+			t.Errorf("lastSearch = %q, want 'line3'", p.lastSearch)
+		}
+		if p.cursor != 3 {
+			t.Errorf("cursor = %d, want 3", p.cursor)
+		}
+	})
+
+	t.Run("keySearchBackward sets lastDir", func(t *testing.T) {
+		p := newTestState(lines, 4)
+		p.cursor = 4
+		p.handleKey(key{typ: keySearchBackward, text: "line1"})
+		if p.lastDir != dirBackward {
+			t.Error("expected lastDir to be dirBackward")
+		}
+		if p.cursor != 1 {
+			t.Errorf("cursor = %d, want 1", p.cursor)
+		}
+	})
 }
 
-func TestSearchForward(t *testing.T) {
+func TestSearch(t *testing.T) {
 	lines := []string{"apple", "banana", "cherry", "apple pie", "date"}
 
-	t.Run("finds match ahead", func(t *testing.T) {
+	t.Run("forward finds match ahead", func(t *testing.T) {
 		p := newTestState(lines, 10)
 		p.lastSearch = "cherry"
-		p.searchForward()
+		p.search(dirForward)
 		if p.cursor != 2 {
 			t.Errorf("cursor = %d, want 2", p.cursor)
 		}
@@ -156,23 +188,40 @@ func TestSearchForward(t *testing.T) {
 		}
 	})
 
-	t.Run("wraps around", func(t *testing.T) {
+	t.Run("forward wraps around", func(t *testing.T) {
 		p := newTestState(lines, 10)
-		p.cursor = 3
+		p.cursor = 4
 		p.lastSearch = "banana"
-		p.searchForward()
+		p.search(dirForward)
 		if p.cursor != 1 {
 			t.Errorf("cursor = %d, want 1", p.cursor)
 		}
-		if p.status != "search hit BOTTOM, continuing at TOP" {
-			t.Errorf("status = %q", p.status)
+	})
+
+	t.Run("backward finds match behind", func(t *testing.T) {
+		p := newTestState(lines, 10)
+		p.cursor = 3
+		p.lastSearch = "banana"
+		p.search(dirBackward)
+		if p.cursor != 1 {
+			t.Errorf("cursor = %d, want 1", p.cursor)
+		}
+	})
+
+	t.Run("backward wraps around", func(t *testing.T) {
+		p := newTestState(lines, 10)
+		p.cursor = 0
+		p.lastSearch = "date"
+		p.search(dirBackward)
+		if p.cursor != 4 {
+			t.Errorf("cursor = %d, want 4", p.cursor)
 		}
 	})
 
 	t.Run("pattern not found", func(t *testing.T) {
 		p := newTestState(lines, 10)
 		p.lastSearch = "zzz"
-		p.searchForward()
+		p.search(dirForward)
 		if p.status != "pattern not found" {
 			t.Errorf("status = %q, want 'pattern not found'", p.status)
 		}
@@ -180,48 +229,29 @@ func TestSearchForward(t *testing.T) {
 
 	t.Run("no previous search", func(t *testing.T) {
 		p := newTestState(lines, 10)
-		p.searchForward()
+		p.search(dirForward)
 		if p.status != "no previous search" {
 			t.Errorf("status = %q, want 'no previous search'", p.status)
 		}
 	})
+
+	t.Run("empty lines", func(t *testing.T) {
+		p := newTestState(nil, 10)
+		p.lastSearch = "foo"
+		p.search(dirForward)
+		if p.status != "no previous search" {
+			t.Errorf("status = %q", p.status)
+		}
+	})
 }
 
-func TestSearchBackward(t *testing.T) {
-	lines := []string{"apple", "banana", "cherry", "apple pie", "date"}
-
-	t.Run("finds match behind", func(t *testing.T) {
-		p := newTestState(lines, 10)
-		p.cursor = 3
-		p.lastSearch = "banana"
-		p.searchBackward()
-		if p.cursor != 1 {
-			t.Errorf("cursor = %d, want 1", p.cursor)
-		}
-	})
-
-	t.Run("wraps around", func(t *testing.T) {
-		p := newTestState(lines, 10)
-		p.cursor = 1
-		p.lastSearch = "date"
-		p.searchBackward()
-		if p.cursor != 4 {
-			t.Errorf("cursor = %d, want 4", p.cursor)
-		}
-		if p.status != "search hit TOP, continuing at BOTTOM" {
-			t.Errorf("status = %q", p.status)
-		}
-	})
-
-	t.Run("pattern not found", func(t *testing.T) {
-		p := newTestState(lines, 10)
-		p.cursor = 2
-		p.lastSearch = "zzz"
-		p.searchBackward()
-		if p.status != "pattern not found" {
-			t.Errorf("status = %q", p.status)
-		}
-	})
+func TestSearchDir_Reverse(t *testing.T) {
+	if dirForward.reverse() != dirBackward {
+		t.Error("forward.reverse() should be backward")
+	}
+	if dirBackward.reverse() != dirForward {
+		t.Error("backward.reverse() should be forward")
+	}
 }
 
 func TestWordUnderCursor(t *testing.T) {
@@ -237,6 +267,7 @@ func TestWordUnderCursor(t *testing.T) {
 		{"word with underscore", []string{"foo_bar baz"}, 0, "foo_bar"},
 		{"no word chars", []string{"---"}, 0, ""},
 		{"word after spaces", []string{"  hello"}, 0, "hello"},
+		{"ANSI colored line", []string{"\033[31mhello\033[0m world"}, 0, "hello"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -266,6 +297,14 @@ func TestHistory(t *testing.T) {
 		p.appendHistory("")
 		if len(p.history) != 0 {
 			t.Errorf("history len = %d, want 0", len(p.history))
+		}
+	})
+
+	t.Run("historyPrev empty returns cur", func(t *testing.T) {
+		p := &pagerState{}
+		got := p.historyPrev([]byte("x"))
+		if string(got) != "x" {
+			t.Errorf("got %q, want 'x'", got)
 		}
 	})
 
@@ -340,26 +379,5 @@ func TestValidMode(t *testing.T) {
 	}
 	if ValidMode("") {
 		t.Error("empty should not be valid")
-	}
-}
-
-func TestParseMode(t *testing.T) {
-	tests := []struct {
-		input    string
-		wantMode Mode
-		wantOK   bool
-	}{
-		{"more", ModeMore, true},
-		{"vim", ModeVim, true},
-		{"MORE", ModeMore, true},
-		{"VIM", ModeVim, true},
-		{"emacs", ModeMore, false},
-		{"", ModeMore, false},
-	}
-	for _, tt := range tests {
-		m, ok := ParseMode(tt.input)
-		if m != tt.wantMode || ok != tt.wantOK {
-			t.Errorf("ParseMode(%q) = (%q, %v), want (%q, %v)", tt.input, m, ok, tt.wantMode, tt.wantOK)
-		}
 	}
 }

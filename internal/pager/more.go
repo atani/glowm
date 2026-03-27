@@ -30,6 +30,7 @@ func pageMore(output string) error {
 		return printOutput(output)
 	}
 	defer term.Restore(int(reader.Fd()), oldState)
+	defer setupSignalHandler(int(reader.Fd()), oldState, nil)()
 
 	bufReader := bufio.NewReader(reader)
 	writer := bufio.NewWriter(os.Stdout)
