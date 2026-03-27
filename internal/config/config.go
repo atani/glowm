@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -35,6 +36,7 @@ func Load() Config {
 		return cfg
 	}
 	if err := json.Unmarshal(data, &cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "glowm: warning: failed to parse %s: %v\n", path, err)
 		return cfg
 	}
 	if cfg.Pager.Mode == "" {

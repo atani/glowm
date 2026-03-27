@@ -70,6 +70,8 @@ func main() {
 		pagerMode = pager.ModeVim
 	case config.PagerModeMore:
 		pagerMode = pager.ModeMore
+	default:
+		fmt.Fprintf(os.Stderr, "glowm: unknown pager mode %q, using more\n", cfg.Pager.Mode)
 	}
 
 	usePagerDefault := stdoutTTY && !*noPager

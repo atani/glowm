@@ -28,7 +28,11 @@ cat README.md | ./glowm -
 
 ## Config
 
-glowm reads `~/.config/glowm/config.json` (or `$XDG_CONFIG_HOME/glowm/config.json`).
+glowm reads the config file from the OS-specific user config directory:
+
+- **macOS**: `~/Library/Application Support/glowm/config.json`
+- **Linux**: `~/.config/glowm/config.json` (or `$XDG_CONFIG_HOME/glowm/config.json`)
+- **Windows**: `%AppData%\glowm\config.json`
 
 Example:
 

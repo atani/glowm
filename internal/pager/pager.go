@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"golang.org/x/term"
 )
@@ -45,12 +47,15 @@ func terminalWidth() int {
 	return w
 }
 
-func openTTYReader() *os.File {
+// openTTYReader opens /dev/tty for direct terminal input.
+// Returns the file and true if /dev/tty was opened (caller should close),
+// or os.Stdin and false if /dev/tty is unavailable (caller must NOT close).
+func openTTYReader() (*os.File, bool) {
 	f, err := os.Open("/dev/tty")
 	if err != nil {
-		return os.Stdin
+		return os.Stdin, false
 	}
-	return f
+	return f, true
 }
 
 func pageMore(output string) error {
@@ -66,8 +71,10 @@ func pageMore(output string) error {
 	}
 
 	lines := strings.Split(output, "\n")
-	reader := openTTYReader()
-	defer reader.Close()
+	reader, shouldClose := openTTYReader()
+	if shouldClose {
+		defer reader.Close()
+	}
 
 	bufReader := bufio.NewReader(reader)
 	writer := bufio.NewWriter(os.Stdout)
@@ -148,8 +155,10 @@ func pageVim(output string) error {
 		plainLines[i] = stripANSI(lines[i])
 	}
 
-	reader := openTTYReader()
-	defer reader.Close()
+	reader, shouldClose := openTTYReader()
+	if shouldClose {
+		defer reader.Close()
+	}
 
 	oldState, err := term.MakeRaw(int(reader.Fd()))
 	if err != nil {
@@ -157,6 +166,16 @@ func pageVim(output string) error {
 		return err
 	}
 	defer term.Restore(int(reader.Fd()), oldState)
+
+	// Restore terminal state on SIGINT/SIGTERM to prevent leaving raw mode
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigCh
+		term.Restore(int(reader.Fd()), oldState)
+		os.Exit(0)
+	}()
+	defer signal.Stop(sigCh)
 
 	bufReader := bufio.NewReader(reader)
 	writer := bufio.NewWriter(os.Stdout)
@@ -656,6 +675,9 @@ func highlightLine(original, plain, pattern string) string {
 }
 
 func findAllMatches(s, pattern string) []int {
+	if pattern == "" {
+		return nil
+	}
 	var matches []int
 	for i := 0; i+len(pattern) <= len(s); {
 		idx := strings.Index(s[i:], pattern)
@@ -707,13 +729,6 @@ func visibleIndexMap(s string) []int {
 		}
 	}
 	return idx
-}
-
-func truncateStatus(s string) string {
-	if len(s) <= 200 {
-		return s
-	}
-	return s[:200]
 }
 
 func (p *pagerState) clampCursor() {
