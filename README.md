@@ -22,8 +22,27 @@ cat README.md | ./glowm -
 
 - `-w` Word wrap width
 - `-s` Style name (dark/light/notty/auto) or JSON style path
-- `-p` Page output
+- `-p` Force pager output (overrides `--no-pager`)
+- `--no-pager` Disable default pager (pager is on by default for TTY)
 - `--pdf` Export Mermaid diagrams to PDF via stdout
+
+## Config
+
+glowm reads the config file from the OS-specific user config directory:
+
+- **macOS**: `~/Library/Application Support/glowm/config.json`
+- **Linux**: `~/.config/glowm/config.json` (or `$XDG_CONFIG_HOME/glowm/config.json`)
+- **Windows**: `%AppData%\glowm\config.json`
+
+Example:
+
+```json
+{
+  "pager": {
+    "mode": "vim"
+  }
+}
+```
 
 ## Requirements
 
