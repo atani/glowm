@@ -4,8 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/atani/glowm/internal/pager"
 )
 
 func setupTestConfig(t *testing.T, content string) {
@@ -30,55 +28,69 @@ func TestLoad_DefaultsWhenNoFile(t *testing.T) {
 	t.Cleanup(func() { configPathFunc = origFunc })
 
 	cfg := Load()
-	if cfg.Pager.Mode != pager.ModeMore {
-		t.Errorf("default mode = %q, want %q", cfg.Pager.Mode, pager.ModeMore)
+	if cfg.Pager.Mode != "more" {
+		t.Errorf("default mode = %q, want %q", cfg.Pager.Mode, "more")
 	}
 }
 
 func TestLoad_VimMode(t *testing.T) {
 	setupTestConfig(t, `{"pager": {"mode": "vim"}}`)
 	cfg := Load()
-	if cfg.Pager.Mode != pager.ModeVim {
-		t.Errorf("mode = %q, want %q", cfg.Pager.Mode, pager.ModeVim)
+	if cfg.Pager.Mode != "vim" {
+		t.Errorf("mode = %q, want %q", cfg.Pager.Mode, "vim")
 	}
 }
 
 func TestLoad_EmptyModeDefaultsToMore(t *testing.T) {
 	setupTestConfig(t, `{"pager": {"mode": ""}}`)
 	cfg := Load()
-	if cfg.Pager.Mode != pager.ModeMore {
-		t.Errorf("mode = %q, want %q", cfg.Pager.Mode, pager.ModeMore)
+	if cfg.Pager.Mode != "more" {
+		t.Errorf("mode = %q, want %q", cfg.Pager.Mode, "more")
 	}
 }
 
 func TestLoad_InvalidJSON(t *testing.T) {
 	setupTestConfig(t, `{invalid json}`)
 	cfg := Load()
-	if cfg.Pager.Mode != pager.ModeMore {
-		t.Errorf("mode = %q, want %q on invalid JSON", cfg.Pager.Mode, pager.ModeMore)
+	if cfg.Pager.Mode != "more" {
+		t.Errorf("mode = %q, want %q on invalid JSON", cfg.Pager.Mode, "more")
 	}
 }
 
-func TestLoad_UnknownMode(t *testing.T) {
+func TestLoad_UnknownModePassedThrough(t *testing.T) {
 	setupTestConfig(t, `{"pager": {"mode": "emacs"}}`)
 	cfg := Load()
-	if cfg.Pager.Mode != pager.ModeMore {
-		t.Errorf("mode = %q, want %q on unknown mode", cfg.Pager.Mode, pager.ModeMore)
+	// Config does not validate mode; that is the caller's responsibility
+	if cfg.Pager.Mode != "emacs" {
+		t.Errorf("mode = %q, want %q", cfg.Pager.Mode, "emacs")
 	}
 }
 
 func TestLoad_MoreMode(t *testing.T) {
 	setupTestConfig(t, `{"pager": {"mode": "more"}}`)
 	cfg := Load()
-	if cfg.Pager.Mode != pager.ModeMore {
-		t.Errorf("mode = %q, want %q", cfg.Pager.Mode, pager.ModeMore)
+	if cfg.Pager.Mode != "more" {
+		t.Errorf("mode = %q, want %q", cfg.Pager.Mode, "more")
 	}
 }
 
 func TestLoad_EmptyConfig(t *testing.T) {
 	setupTestConfig(t, `{}`)
 	cfg := Load()
-	if cfg.Pager.Mode != pager.ModeMore {
-		t.Errorf("mode = %q, want %q", cfg.Pager.Mode, pager.ModeMore)
+	if cfg.Pager.Mode != "more" {
+		t.Errorf("mode = %q, want %q", cfg.Pager.Mode, "more")
+	}
+}
+
+func TestLoad_ConfigPathError(t *testing.T) {
+	origFunc := configPathFunc
+	configPathFunc = func() (string, error) {
+		return "", os.ErrNotExist
+	}
+	t.Cleanup(func() { configPathFunc = origFunc })
+
+	cfg := Load()
+	if cfg.Pager.Mode != "more" {
+		t.Errorf("mode = %q, want %q", cfg.Pager.Mode, "more")
 	}
 }

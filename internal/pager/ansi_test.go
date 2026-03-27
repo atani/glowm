@@ -127,6 +127,11 @@ func TestTrimPlainToWidth(t *testing.T) {
 		{"zero width", "hello", 0, "hello"},
 		{"width 1", "hello", 1, "h"},
 		{"empty string", "", 5, ""},
+		{"CJK full-width", "あいう", 4, "あい"},
+		{"CJK mixed", "aあb", 3, "aあ"},
+		{"CJK exact", "あ", 2, "あ"},
+		{"CJK too narrow", "あ", 1, ""},
+		{"negative width", "hello", -1, "hello"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -151,6 +156,8 @@ func TestTrimANSIToWidth(t *testing.T) {
 		{"ANSI exceeds width", "\033[31mhello world\033[0m", 5, "\033[31mhello"},
 		{"zero width", "hello", 0, "hello"},
 		{"only ANSI codes", "\033[31m\033[0m", 5, "\033[31m\033[0m"},
+		{"CJK with ANSI", "\033[31mあいう\033[0m", 4, "\033[31mあい"},
+		{"negative width", "hello", -1, "hello"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

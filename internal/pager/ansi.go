@@ -1,6 +1,11 @@
 package pager
 
-import "strings"
+import (
+	"strings"
+	"unicode/utf8"
+
+	"github.com/mattn/go-runewidth"
+)
 
 // ANSI escape sequence constants.
 const (
@@ -144,29 +149,46 @@ func findAllMatches(s, pattern string) []int {
 	return matches
 }
 
+// trimPlainToWidth truncates a plain-text string to fit within the given
+// display column width, accounting for full-width CJK characters.
 func trimPlainToWidth(s string, width int) string {
 	if width <= 0 {
 		return s
 	}
-	if len(s) <= width {
-		return s
+	w := 0
+	for i, r := range s {
+		rw := runewidth.RuneWidth(r)
+		if w+rw > width {
+			return s[:i]
+		}
+		w += rw
 	}
-	return s[:width]
+	return s
 }
 
+// trimANSIToWidth truncates a string containing ANSI escape sequences
+// to fit within the given display column width, preserving escape sequences
+// and accounting for full-width CJK characters.
 func trimANSIToWidth(s string, width int) string {
 	if width <= 0 {
 		return s
 	}
-	indexMap := visibleIndexMap(s)
-	if len(indexMap) <= width {
-		return s
+	w := 0
+	for i := 0; i < len(s); {
+		if s[i] == 0x1b {
+			end := skipEscapeSequence(s, i)
+			i = end + 1
+			continue
+		}
+		r, size := utf8.DecodeRuneInString(s[i:])
+		rw := runewidth.RuneWidth(r)
+		if w+rw > width {
+			return s[:i]
+		}
+		w += rw
+		i += size
 	}
-	cut := indexMap[width-1] + 1
-	if cut < 0 || cut > len(s) {
-		return s
-	}
-	return s[:cut]
+	return s
 }
 
 func isWordChar(b byte) bool {

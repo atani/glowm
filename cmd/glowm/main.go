@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/atani/glowm/internal/config"
 	"github.com/atani/glowm/internal/input"
@@ -63,6 +64,11 @@ func main() {
 	imageFormat := termimage.Detect()
 
 	cfg := config.Load()
+	pagerMode := pager.Mode(strings.ToLower(cfg.Pager.Mode))
+	if !pager.ValidMode(pagerMode) {
+		fmt.Fprintf(os.Stderr, "glowm: unknown pager mode %q, using more\n", cfg.Pager.Mode)
+		pagerMode = pager.ModeMore
+	}
 	isPagerEnabledByDefault := stdoutTTY && !*noPager
 	shouldUsePager := *usePager || isPagerEnabledByDefault
 
@@ -88,7 +94,7 @@ func main() {
 			output = termimage.ReplaceMarkersWithImages(output, result.Markers, images, imageFormat, w)
 
 			if shouldUsePager {
-				if err := pager.PageWithMode(output, cfg.Pager.Mode); err != nil {
+				if err := pager.PageWithMode(output, pagerMode); err != nil {
 					exitWithError(err)
 				}
 				return
@@ -118,7 +124,7 @@ func main() {
 	}
 
 	if shouldUsePager && stdoutTTY {
-		if err := pager.PageWithMode(output, cfg.Pager.Mode); err != nil {
+		if err := pager.PageWithMode(output, pagerMode); err != nil {
 			exitWithError(err)
 		}
 		return

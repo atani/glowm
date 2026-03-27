@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/atani/glowm/internal/pager"
 )
 
 // Config holds the application configuration.
@@ -16,7 +14,7 @@ type Config struct {
 
 // PagerConfig holds pager-specific settings.
 type PagerConfig struct {
-	Mode pager.Mode `json:"mode"`
+	Mode string `json:"mode"`
 }
 
 // configPathFunc is the function used to determine the config file path.
@@ -25,11 +23,11 @@ var configPathFunc = configPath
 
 // Load reads and returns the application config.
 // Returns defaults if the config file is missing or unreadable.
-// Warns to stderr if the file exists but is invalid.
+// Warns to stderr if the file exists but is invalid JSON.
 func Load() Config {
 	defaultCfg := Config{
 		Pager: PagerConfig{
-			Mode: pager.ModeMore,
+			Mode: "more",
 		},
 	}
 
@@ -48,10 +46,7 @@ func Load() Config {
 		return defaultCfg
 	}
 	if cfg.Pager.Mode == "" {
-		cfg.Pager.Mode = pager.ModeMore
-	} else if !pager.ValidMode(cfg.Pager.Mode) {
-		fmt.Fprintf(os.Stderr, "glowm: unknown pager mode %q, using more\n", cfg.Pager.Mode)
-		cfg.Pager.Mode = pager.ModeMore
+		cfg.Pager.Mode = "more"
 	}
 	return cfg
 }
