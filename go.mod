@@ -1,6 +1,6 @@
 module github.com/atani/glowm
 
-go 1.25.0
+go 1.26
 
 require (
 	github.com/charmbracelet/glamour/v2 v2.0.0-20250327182001-9fa948b57fe4
