@@ -142,6 +142,15 @@ func TestDetect_KittyByTerm(t *testing.T) {
 	}
 }
 
+func TestDetect_Ghostty(t *testing.T) {
+	t.Setenv("TERM_PROGRAM", "ghostty")
+	t.Setenv("KITTY_WINDOW_ID", "")
+	t.Setenv("TERM", "xterm-ghostty")
+	if got := Detect(); got != FormatKitty {
+		t.Fatalf("expected FormatKitty for Ghostty, got %d", got)
+	}
+}
+
 func TestDetect_None(t *testing.T) {
 	t.Setenv("TERM_PROGRAM", "")
 	t.Setenv("KITTY_WINDOW_ID", "")

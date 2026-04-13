@@ -48,7 +48,14 @@ func isKitty() bool {
 	if os.Getenv("KITTY_WINDOW_ID") != "" {
 		return true
 	}
-	return strings.Contains(os.Getenv("TERM"), "xterm-kitty")
+	if strings.Contains(os.Getenv("TERM"), "xterm-kitty") {
+		return true
+	}
+	// Ghostty supports the Kitty graphics protocol
+	if os.Getenv("TERM_PROGRAM") == "ghostty" {
+		return true
+	}
+	return false
 }
 
 func encodeIterm2(png []byte, widthCells int) string {
