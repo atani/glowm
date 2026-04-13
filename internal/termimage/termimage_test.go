@@ -120,6 +120,7 @@ func TestDetect_ITerm2(t *testing.T) {
 	t.Setenv("TERM_PROGRAM", "iTerm.app")
 	t.Setenv("KITTY_WINDOW_ID", "")
 	t.Setenv("TERM", "xterm-256color")
+	t.Setenv("GHOSTTY_RESOURCES_DIR", "")
 	if got := Detect(); got != FormatIterm2 {
 		t.Fatalf("expected FormatIterm2, got %d", got)
 	}
@@ -128,6 +129,7 @@ func TestDetect_ITerm2(t *testing.T) {
 func TestDetect_Kitty(t *testing.T) {
 	t.Setenv("TERM_PROGRAM", "")
 	t.Setenv("KITTY_WINDOW_ID", "1")
+	t.Setenv("GHOSTTY_RESOURCES_DIR", "")
 	if got := Detect(); got != FormatKitty {
 		t.Fatalf("expected FormatKitty, got %d", got)
 	}
@@ -137,6 +139,7 @@ func TestDetect_KittyByTerm(t *testing.T) {
 	t.Setenv("TERM_PROGRAM", "")
 	t.Setenv("KITTY_WINDOW_ID", "")
 	t.Setenv("TERM", "xterm-kitty")
+	t.Setenv("GHOSTTY_RESOURCES_DIR", "")
 	if got := Detect(); got != FormatKitty {
 		t.Fatalf("expected FormatKitty, got %d", got)
 	}
@@ -146,8 +149,19 @@ func TestDetect_Ghostty(t *testing.T) {
 	t.Setenv("TERM_PROGRAM", "ghostty")
 	t.Setenv("KITTY_WINDOW_ID", "")
 	t.Setenv("TERM", "xterm-ghostty")
+	t.Setenv("GHOSTTY_RESOURCES_DIR", "")
 	if got := Detect(); got != FormatKitty {
 		t.Fatalf("expected FormatKitty for Ghostty, got %d", got)
+	}
+}
+
+func TestDetect_GhosttyInTmux(t *testing.T) {
+	t.Setenv("TERM_PROGRAM", "tmux")
+	t.Setenv("KITTY_WINDOW_ID", "")
+	t.Setenv("TERM", "xterm-256color")
+	t.Setenv("GHOSTTY_RESOURCES_DIR", "/Applications/Ghostty.app/Contents/Resources/ghostty")
+	if got := Detect(); got != FormatKitty {
+		t.Fatalf("expected FormatKitty for Ghostty in tmux, got %d", got)
 	}
 }
 
@@ -155,6 +169,7 @@ func TestDetect_None(t *testing.T) {
 	t.Setenv("TERM_PROGRAM", "")
 	t.Setenv("KITTY_WINDOW_ID", "")
 	t.Setenv("TERM", "xterm-256color")
+	t.Setenv("GHOSTTY_RESOURCES_DIR", "")
 	if got := Detect(); got != FormatNone {
 		t.Fatalf("expected FormatNone, got %d", got)
 	}

@@ -55,6 +55,11 @@ func isKitty() bool {
 	if os.Getenv("TERM_PROGRAM") == "ghostty" {
 		return true
 	}
+	// Ghostty inside tmux: TERM_PROGRAM is overridden by tmux,
+	// but GHOSTTY_RESOURCES_DIR is still set
+	if os.Getenv("GHOSTTY_RESOURCES_DIR") != "" {
+		return true
+	}
 	return false
 }
 
