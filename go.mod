@@ -6,7 +6,7 @@ require (
 	github.com/charmbracelet/glamour/v2 v2.0.0-20250327182001-9fa948b57fe4
 	github.com/chromedp/cdproto v0.0.0-20260321001828-e3e3800016bc
 	github.com/chromedp/chromedp v0.15.1
-	github.com/mattn/go-runewidth v0.0.22
+	github.com/mattn/go-runewidth v0.0.23
 	github.com/muesli/termenv v0.16.0
 	golang.org/x/term v0.42.0
 )
