@@ -1,6 +1,6 @@
 # glowm
 
-A [Glow](https://github.com/charmbracelet/glow)-like Markdown CLI with Mermaid rendering for iTerm2/Kitty and PDF output.
+A [Glow](https://github.com/charmbracelet/glow)-like Markdown CLI with Mermaid rendering for iTerm2/Kitty/Ghostty and PDF output.
 
 ![glowm demo](docs/demo.gif)
 ![glowm demo screenshot](docs/README-demo.png)
@@ -51,7 +51,7 @@ Example:
 
 ## Mermaid rendering
 
-- iTerm2 / Kitty: Mermaid diagrams are rendered inline as images
+- iTerm2 / Kitty / Ghostty: Mermaid diagrams are rendered inline as images
 - Other terminals: Mermaid blocks are shown as code
 
 ## Install (Homebrew)
