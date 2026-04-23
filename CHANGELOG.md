@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/atani/glowm/compare/v0.2.2...v0.3.0) (2026-04-23)
+
+
+### Features
+
+* support Ghostty terminal for Mermaid image rendering ([#39](https://github.com/atani/glowm/issues/39)) ([964a56c](https://github.com/atani/glowm/commit/964a56cae73c113f75f37df4639c8e7021feaec8))
+
 ## [0.2.2](https://github.com/atani/glowm/compare/v0.2.1...v0.2.2) (2026-03-27)
 
 
