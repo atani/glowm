@@ -16,7 +16,7 @@ func RenderPNGs(diagrams []string, widthCells int) ([][]byte, error) {
 	}
 
 	htmlDoc, ids := buildMermaidHTML(diagrams, htmlConfig{AssignIDs: true, CSS: pngCSS})
-	fileURL, cleanup, err := writeTempHTML(htmlDoc)
+	pageURL, cleanup, err := serveHTML(htmlDoc)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +31,7 @@ func RenderPNGs(diagrams []string, widthCells int) ([][]byte, error) {
 	)
 	if err := chromedp.Run(ctx,
 		emulation.SetDeviceMetricsOverride(viewportWidth(widthCells), 900, 1, false),
-		chromedp.Navigate(fileURL),
+		chromedp.Navigate(pageURL),
 		chromedp.Poll("window.__MERMAID_DONE__ === true || !!window.__MERMAID_ERROR__", &pollDone, chromedp.WithPollingInterval(100*time.Millisecond)),
 		chromedp.Evaluate("window.__MERMAID_ERROR__", &renderErr),
 	); err != nil {

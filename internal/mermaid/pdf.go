@@ -22,7 +22,7 @@ func RenderPDF(diagrams []string) ([]byte, error) {
 	}
 
 	htmlDoc, _ := buildMermaidHTML(diagrams, htmlConfig{CSS: pdfCSS})
-	fileURL, cleanup, err := writeTempHTML(htmlDoc)
+	pageURL, cleanup, err := serveHTML(htmlDoc)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func RenderPDF(diagrams []string) ([]byte, error) {
 		pollDone  bool
 	)
 	if err := chromedp.Run(ctx,
-		chromedp.Navigate(fileURL),
+		chromedp.Navigate(pageURL),
 		chromedp.Poll("window.__MERMAID_DONE__ === true || !!window.__MERMAID_ERROR__", &pollDone, chromedp.WithPollingInterval(100*time.Millisecond)),
 		chromedp.Evaluate("window.__MERMAID_ERROR__", &renderErr),
 	); err != nil {

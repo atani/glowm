@@ -3,9 +3,9 @@ package mermaid
 import (
 	"context"
 	"fmt"
-	"net/url"
+	"net"
+	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/chromedp/chromedp"
@@ -39,19 +39,29 @@ func newBrowserContext(timeout time.Duration) (context.Context, context.CancelFu
 	}
 }
 
-func writeTempHTML(content string) (string, func(), error) {
-	dir, err := os.MkdirTemp("", "glowm-*")
+// serveHTML starts a loopback HTTP server that serves content as a single page,
+// and returns the URL and a cleanup function. Using HTTP avoids file:// access
+// restrictions in sandboxed Chrome environments (e.g. snap packages).
+func serveHTML(content string) (string, func(), error) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return "", nil, err
 	}
-	path := filepath.Join(dir, "render.html")
-	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
-		os.RemoveAll(dir)
-		return "", nil, err
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = fmt.Fprint(w, content)
+	})
+	srv := &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
-	fileURL := url.URL{Scheme: "file", Path: path}
+	go func() { _ = srv.Serve(ln) }()
+	url := "http://" + ln.Addr().String() + "/"
 	cleanup := func() {
-		_ = os.RemoveAll(dir)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(ctx)
 	}
-	return fileURL.String(), cleanup, nil
+	return url, cleanup, nil
 }
