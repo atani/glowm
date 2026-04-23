@@ -6,6 +6,35 @@ import (
 	"testing"
 )
 
+// termEnv captures the subset of environment variables Detect() consults.
+// Zero values clear the variable for the test scope.
+type termEnv struct {
+	termProgram         string
+	kittyWindowID       string
+	term                string
+	ghosttyResourcesDir string
+	tmux                string
+	glowmSixel          string
+}
+
+// setTermEnv resets the Detect/isSixel caches and applies e for the current
+// test, restoring caches automatically when the test finishes.
+func setTermEnv(t *testing.T, e termEnv) {
+	t.Helper()
+	resetDetectCache()
+	resetSixelCache()
+	t.Cleanup(func() {
+		resetDetectCache()
+		resetSixelCache()
+	})
+	t.Setenv("TERM_PROGRAM", e.termProgram)
+	t.Setenv("KITTY_WINDOW_ID", e.kittyWindowID)
+	t.Setenv("TERM", e.term)
+	t.Setenv("GHOSTTY_RESOURCES_DIR", e.ghosttyResourcesDir)
+	t.Setenv("TMUX", e.tmux)
+	t.Setenv("GLOWM_SIXEL", e.glowmSixel)
+}
+
 func TestEncode_FormatNone(t *testing.T) {
 	got := Encode(FormatNone, []byte("png-data"))
 	if got != "" {
@@ -117,103 +146,83 @@ func TestEncodeWithWidth_RoundTrip(t *testing.T) {
 }
 
 func TestDetect_ITerm2(t *testing.T) {
-	resetDetectCache()
-	resetSixelCache()
-	t.Cleanup(func() { resetDetectCache(); resetSixelCache() })
-	t.Setenv("TERM_PROGRAM", "iTerm.app")
-	t.Setenv("KITTY_WINDOW_ID", "")
-	t.Setenv("TERM", "xterm-256color")
-	t.Setenv("GHOSTTY_RESOURCES_DIR", "")
-	t.Setenv("GLOWM_SIXEL", "")
+	setTermEnv(t, termEnv{termProgram: "iTerm.app", term: "xterm-256color"})
 	if got := Detect(); got != FormatIterm2 {
 		t.Fatalf("expected FormatIterm2, got %d", got)
 	}
 }
 
 func TestDetect_Kitty(t *testing.T) {
-	resetDetectCache()
-	resetSixelCache()
-	t.Cleanup(func() { resetDetectCache(); resetSixelCache() })
-	t.Setenv("TERM_PROGRAM", "")
-	t.Setenv("KITTY_WINDOW_ID", "1")
-	t.Setenv("GHOSTTY_RESOURCES_DIR", "")
-	t.Setenv("GLOWM_SIXEL", "")
+	setTermEnv(t, termEnv{kittyWindowID: "1"})
 	if got := Detect(); got != FormatKitty {
 		t.Fatalf("expected FormatKitty, got %d", got)
 	}
 }
 
 func TestDetect_KittyByTerm(t *testing.T) {
-	resetDetectCache()
-	resetSixelCache()
-	t.Cleanup(func() { resetDetectCache(); resetSixelCache() })
-	t.Setenv("TERM_PROGRAM", "")
-	t.Setenv("KITTY_WINDOW_ID", "")
-	t.Setenv("TERM", "xterm-kitty")
-	t.Setenv("GHOSTTY_RESOURCES_DIR", "")
-	t.Setenv("GLOWM_SIXEL", "")
+	setTermEnv(t, termEnv{term: "xterm-kitty"})
 	if got := Detect(); got != FormatKitty {
 		t.Fatalf("expected FormatKitty, got %d", got)
 	}
 }
 
 func TestDetect_Ghostty(t *testing.T) {
-	t.Setenv("TERM_PROGRAM", "ghostty")
-	t.Setenv("KITTY_WINDOW_ID", "")
-	t.Setenv("TERM", "xterm-ghostty")
-	t.Setenv("GHOSTTY_RESOURCES_DIR", "")
+	setTermEnv(t, termEnv{termProgram: "ghostty", term: "xterm-ghostty"})
 	if got := Detect(); got != FormatKitty {
 		t.Fatalf("expected FormatKitty for Ghostty, got %d", got)
 	}
 }
 
+func TestDetect_GhosttyByTerm(t *testing.T) {
+	// Some setups expose Ghostty only via TERM=xterm-ghostty. Guard that the
+	// TERM check also triggers detection independently of TERM_PROGRAM.
+	setTermEnv(t, termEnv{term: "xterm-ghostty"})
+	if got := Detect(); got != FormatKitty {
+		t.Fatalf("expected FormatKitty for xterm-ghostty, got %d", got)
+	}
+}
+
 func TestDetect_GhosttyInTmux(t *testing.T) {
-	t.Setenv("TERM_PROGRAM", "tmux")
-	t.Setenv("KITTY_WINDOW_ID", "")
-	t.Setenv("TERM", "xterm-256color")
-	t.Setenv("GHOSTTY_RESOURCES_DIR", "/Applications/Ghostty.app/Contents/Resources/ghostty")
+	setTermEnv(t, termEnv{
+		termProgram:         "tmux",
+		term:                "xterm-256color",
+		ghosttyResourcesDir: "/Applications/Ghostty.app/Contents/Resources/ghostty",
+		tmux:                "/tmp/tmux-1000/default,123,0",
+	})
 	if got := Detect(); got != FormatKitty {
 		t.Fatalf("expected FormatKitty for Ghostty in tmux, got %d", got)
 	}
 }
 
+func TestDetect_GhosttyResourcesDirLeakedWithoutTmux(t *testing.T) {
+	// GHOSTTY_RESOURCES_DIR can leak into non-Ghostty children (SSH SendEnv,
+	// detached tmux reattached elsewhere, stray shell exports). Without TMUX
+	// set, Detect must not assume Kitty graphics are supported.
+	setTermEnv(t, termEnv{
+		term:                "xterm-256color",
+		ghosttyResourcesDir: "/Applications/Ghostty.app/Contents/Resources/ghostty",
+	})
+	if got := Detect(); got != FormatNone {
+		t.Fatalf("leaked GHOSTTY_RESOURCES_DIR without TMUX must not trigger Kitty; got %d", got)
+	}
+}
+
 func TestDetect_None(t *testing.T) {
-	resetDetectCache()
-	resetSixelCache()
-	t.Cleanup(func() { resetDetectCache(); resetSixelCache() })
-	t.Setenv("TERM_PROGRAM", "")
-	t.Setenv("KITTY_WINDOW_ID", "")
-	t.Setenv("TERM", "xterm-256color")
-	t.Setenv("GHOSTTY_RESOURCES_DIR", "")
-	t.Setenv("GLOWM_SIXEL", "")
+	setTermEnv(t, termEnv{term: "xterm-256color"})
 	if got := Detect(); got != FormatNone {
 		t.Fatalf("expected FormatNone, got %d", got)
 	}
 }
 
 func TestDetect_Sixel(t *testing.T) {
-	resetDetectCache()
-	resetSixelCache()
-	t.Cleanup(func() { resetDetectCache(); resetSixelCache() })
-	t.Setenv("TERM_PROGRAM", "")
-	t.Setenv("KITTY_WINDOW_ID", "")
-	t.Setenv("TERM", "xterm-256color")
-	t.Setenv("GHOSTTY_RESOURCES_DIR", "")
-	t.Setenv("GLOWM_SIXEL", "1")
+	setTermEnv(t, termEnv{term: "xterm-256color", glowmSixel: "1"})
 	if got := Detect(); got != FormatSixel {
 		t.Fatalf("expected FormatSixel, got %d", got)
 	}
 }
 
 func TestDetect_Cached(t *testing.T) {
-	resetDetectCache()
-	resetSixelCache()
-	t.Cleanup(func() { resetDetectCache(); resetSixelCache() })
-	t.Setenv("TERM_PROGRAM", "iTerm.app")
-	t.Setenv("KITTY_WINDOW_ID", "")
-	t.Setenv("TERM", "xterm-256color")
-	t.Setenv("GHOSTTY_RESOURCES_DIR", "")
-	t.Setenv("GLOWM_SIXEL", "")
+	setTermEnv(t, termEnv{termProgram: "iTerm.app", term: "xterm-256color"})
 	if got := Detect(); got != FormatIterm2 {
 		t.Fatalf("first call: expected FormatIterm2, got %d", got)
 	}

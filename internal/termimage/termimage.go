@@ -43,7 +43,7 @@ func detectUncached() Format {
 	if isIterm2() {
 		return FormatIterm2
 	}
-	if isKitty() {
+	if supportsKittyGraphics() {
 		return FormatKitty
 	}
 	if isSixel() {
@@ -75,20 +75,23 @@ func isIterm2() bool {
 	return os.Getenv("TERM_PROGRAM") == "iTerm.app"
 }
 
-func isKitty() bool {
+// supportsKittyGraphics reports whether the current terminal renders images
+// via the Kitty graphics protocol. This covers Kitty itself, Ghostty (native),
+// and Ghostty wrapped by tmux (which rewrites TERM_PROGRAM, so we rely on
+// TMUX + GHOSTTY_RESOURCES_DIR together to avoid false positives when the
+// env var leaks into unrelated children such as SSH with SendEnv).
+func supportsKittyGraphics() bool {
 	if os.Getenv("KITTY_WINDOW_ID") != "" {
 		return true
 	}
-	if strings.Contains(os.Getenv("TERM"), "xterm-kitty") {
+	term := os.Getenv("TERM")
+	if strings.Contains(term, "xterm-kitty") {
 		return true
 	}
-	// Ghostty supports the Kitty graphics protocol
-	if os.Getenv("TERM_PROGRAM") == "ghostty" {
+	if os.Getenv("TERM_PROGRAM") == "ghostty" || strings.Contains(term, "xterm-ghostty") {
 		return true
 	}
-	// Ghostty inside tmux: TERM_PROGRAM is overridden by tmux,
-	// but GHOSTTY_RESOURCES_DIR is still set
-	if os.Getenv("GHOSTTY_RESOURCES_DIR") != "" {
+	if os.Getenv("TMUX") != "" && os.Getenv("GHOSTTY_RESOURCES_DIR") != "" {
 		return true
 	}
 	return false
