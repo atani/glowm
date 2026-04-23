@@ -117,29 +117,41 @@ func TestEncodeWithWidth_RoundTrip(t *testing.T) {
 }
 
 func TestDetect_ITerm2(t *testing.T) {
+	resetDetectCache()
+	resetSixelCache()
+	t.Cleanup(func() { resetDetectCache(); resetSixelCache() })
 	t.Setenv("TERM_PROGRAM", "iTerm.app")
 	t.Setenv("KITTY_WINDOW_ID", "")
 	t.Setenv("TERM", "xterm-256color")
 	t.Setenv("GHOSTTY_RESOURCES_DIR", "")
+	t.Setenv("GLOWM_SIXEL", "")
 	if got := Detect(); got != FormatIterm2 {
 		t.Fatalf("expected FormatIterm2, got %d", got)
 	}
 }
 
 func TestDetect_Kitty(t *testing.T) {
+	resetDetectCache()
+	resetSixelCache()
+	t.Cleanup(func() { resetDetectCache(); resetSixelCache() })
 	t.Setenv("TERM_PROGRAM", "")
 	t.Setenv("KITTY_WINDOW_ID", "1")
 	t.Setenv("GHOSTTY_RESOURCES_DIR", "")
+	t.Setenv("GLOWM_SIXEL", "")
 	if got := Detect(); got != FormatKitty {
 		t.Fatalf("expected FormatKitty, got %d", got)
 	}
 }
 
 func TestDetect_KittyByTerm(t *testing.T) {
+	resetDetectCache()
+	resetSixelCache()
+	t.Cleanup(func() { resetDetectCache(); resetSixelCache() })
 	t.Setenv("TERM_PROGRAM", "")
 	t.Setenv("KITTY_WINDOW_ID", "")
 	t.Setenv("TERM", "xterm-kitty")
 	t.Setenv("GHOSTTY_RESOURCES_DIR", "")
+	t.Setenv("GLOWM_SIXEL", "")
 	if got := Detect(); got != FormatKitty {
 		t.Fatalf("expected FormatKitty, got %d", got)
 	}
@@ -166,12 +178,50 @@ func TestDetect_GhosttyInTmux(t *testing.T) {
 }
 
 func TestDetect_None(t *testing.T) {
+	resetDetectCache()
+	resetSixelCache()
+	t.Cleanup(func() { resetDetectCache(); resetSixelCache() })
 	t.Setenv("TERM_PROGRAM", "")
 	t.Setenv("KITTY_WINDOW_ID", "")
 	t.Setenv("TERM", "xterm-256color")
 	t.Setenv("GHOSTTY_RESOURCES_DIR", "")
+	t.Setenv("GLOWM_SIXEL", "")
 	if got := Detect(); got != FormatNone {
 		t.Fatalf("expected FormatNone, got %d", got)
+	}
+}
+
+func TestDetect_Sixel(t *testing.T) {
+	resetDetectCache()
+	resetSixelCache()
+	t.Cleanup(func() { resetDetectCache(); resetSixelCache() })
+	t.Setenv("TERM_PROGRAM", "")
+	t.Setenv("KITTY_WINDOW_ID", "")
+	t.Setenv("TERM", "xterm-256color")
+	t.Setenv("GHOSTTY_RESOURCES_DIR", "")
+	t.Setenv("GLOWM_SIXEL", "1")
+	if got := Detect(); got != FormatSixel {
+		t.Fatalf("expected FormatSixel, got %d", got)
+	}
+}
+
+func TestDetect_Cached(t *testing.T) {
+	resetDetectCache()
+	resetSixelCache()
+	t.Cleanup(func() { resetDetectCache(); resetSixelCache() })
+	t.Setenv("TERM_PROGRAM", "iTerm.app")
+	t.Setenv("KITTY_WINDOW_ID", "")
+	t.Setenv("TERM", "xterm-256color")
+	t.Setenv("GHOSTTY_RESOURCES_DIR", "")
+	t.Setenv("GLOWM_SIXEL", "")
+	if got := Detect(); got != FormatIterm2 {
+		t.Fatalf("first call: expected FormatIterm2, got %d", got)
+	}
+	// Flip env vars; cached result must still win.
+	t.Setenv("TERM_PROGRAM", "")
+	t.Setenv("KITTY_WINDOW_ID", "1")
+	if got := Detect(); got != FormatIterm2 {
+		t.Fatalf("expected cached FormatIterm2, got %d", got)
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type Format int
@@ -13,14 +14,40 @@ const (
 	FormatNone Format = iota
 	FormatIterm2
 	FormatKitty
+	FormatSixel
 )
 
+var (
+	detectOnce   sync.Once
+	detectedFmt  Format
+)
+
+// Detect determines the terminal's image-protocol support. The result is
+// cached so the DA1 probe inside isSixel() does not add latency on every
+// subsequent call.
 func Detect() Format {
+	detectOnce.Do(func() {
+		detectedFmt = detectUncached()
+	})
+	return detectedFmt
+}
+
+// resetDetectCache clears the cached Detect result. Intended for tests that
+// vary terminal env vars between cases.
+func resetDetectCache() {
+	detectOnce = sync.Once{}
+	detectedFmt = FormatNone
+}
+
+func detectUncached() Format {
 	if isIterm2() {
 		return FormatIterm2
 	}
 	if isKitty() {
 		return FormatKitty
+	}
+	if isSixel() {
+		return FormatSixel
 	}
 	return FormatNone
 }
@@ -35,6 +62,10 @@ func EncodeWithWidth(format Format, png []byte, widthCells int) string {
 		return encodeIterm2(png, widthCells)
 	case FormatKitty:
 		return encodeKitty(png, widthCells)
+	case FormatSixel:
+		// TODO: widthCells is not honored for Sixel; go-sixel sizes output by
+		// source pixels. Scaling would require pre-resizing the PNG.
+		return encodeSixel(png)
 	default:
 		return ""
 	}
