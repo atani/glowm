@@ -41,6 +41,7 @@ jobs:
             core.setOutput('number', prNumber);
 
       - name: Enable auto-merge
+        if: ${{ steps.pr.outputs.number != '' }}
         run: gh pr merge --auto --squash "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"
         env:
           PR_NUMBER: ${{ steps.pr.outputs.number }}
