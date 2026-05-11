@@ -15,6 +15,13 @@ updates:
       - "dependencies"
       - "go"
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "github.com/charmbracelet/glamour/v2"
+        versions: ["2.0.0"]
+        # Upstream renamed the published module path to charm.land/glamour/v2,
+        # so Dependabot's direct update attempt currently fails with
+        # go_module_path_mismatch. Ignore the first stable release until the
+        # codebase is migrated to the new import path.
 
   - package-ecosystem: "github-actions"
     directory: "/"
