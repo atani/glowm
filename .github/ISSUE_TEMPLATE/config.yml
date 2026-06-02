@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/atani/glowm/discussions
+    about: Use Discussions for open-ended ideas once Discussions are enabled.

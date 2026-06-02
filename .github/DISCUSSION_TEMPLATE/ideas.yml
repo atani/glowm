@@ -1,0 +1,21 @@
+title: "[Idea]: "
+labels: []
+body:
+  - type: textarea
+    id: workflow
+    attributes:
+      label: What are you using glowm for?
+      description: ADRs, READMEs, runbooks, Mermaid diagrams, PDF export, terminal preview, etc.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would make the workflow better?
+    validations:
+      required: true
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal / environment
+      placeholder: "iTerm2, Kitty, Ghostty, tmux, SSH, ..."

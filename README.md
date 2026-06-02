@@ -1,38 +1,100 @@
 # glowm
 
-A [Glow](https://github.com/charmbracelet/glow)-like Markdown CLI with Mermaid rendering for iTerm2/Kitty/Ghostty and PDF output.
+**Read Markdown architecture docs in your terminal — with Mermaid diagrams rendered inline.**
 
-![glowm demo](docs/demo.gif)
+`glowm` is a terminal-first Markdown viewer for developers who keep design docs, ADRs, and diagrams next to the code. It renders Markdown beautifully in the terminal, displays Mermaid diagrams inline on modern terminals like iTerm2, Kitty, and Ghostty, and can export diagrams to PDF when you need to share them outside the terminal.
+
+> Stop opening a browser just to preview Mermaid diagrams in Markdown.
+
 ![glowm demo screenshot](docs/README-demo.png)
 
-## Usage
+## Why glowm?
+
+Many engineering teams keep architecture notes, runbooks, ADRs, and design documents in Markdown. Mermaid makes those docs more useful, but most terminal Markdown viewers leave Mermaid blocks as plain code.
+
+`glowm` keeps the whole workflow in your terminal:
+
+- **Inline Mermaid diagrams** on iTerm2, Kitty, and Ghostty
+- **PDF export** for Mermaid diagrams when you need an artifact
+- **Pager-first reading** for long documentation files
+- **STDIN support** for piping generated docs or command output
+- **Glow-like Markdown rendering** with familiar terminal ergonomics
+
+## Perfect for
+
+- Reading architecture docs and ADRs without leaving the terminal
+- Previewing Mermaid-heavy README files before committing
+- Reviewing documentation in SSH sessions or terminal-only workflows
+- Exporting diagrams from Markdown docs to PDF
+- Teams that prefer docs-as-code over browser-only documentation tools
+
+## Install
+
+### Homebrew
+
+```bash
+brew tap atani/tap
+brew install glowm
+```
+
+### Go
+
+```bash
+go install github.com/atani/glowm/cmd/glowm@latest
+```
+
+## Quick start
 
 ```bash
 # Render Markdown to ANSI output
-./glowm README.md
+glowm README.md
 
 # Read from STDIN
-cat README.md | ./glowm -
+cat README.md | glowm -
 
 # Export Mermaid diagrams to PDF
-./glowm --pdf README.md > diagram.pdf
+glowm --pdf README.md > diagrams.pdf
 ```
+
+## Mermaid rendering
+
+When stdout is a supported terminal, Mermaid code blocks are rendered inline as images:
+
+- iTerm2
+- Kitty
+- Ghostty
+
+On other terminals, Mermaid blocks gracefully fall back to code blocks.
+
+Chrome or Chromium is required for Mermaid rendering and PDF export.
+
+## Comparison
+
+| Feature | glowm | Glow | Browser preview | VS Code preview |
+| --- | --- | --- | --- | --- |
+| Terminal Markdown reading | ✅ | ✅ | ❌ | ❌ |
+| Inline Mermaid diagrams in terminal | ✅ | ❌ | ❌ | ❌ |
+| Mermaid PDF export | ✅ | ❌ | Varies | Varies |
+| Works with STDIN / pipes | ✅ | ✅ | ❌ | ❌ |
+| Good for SSH / terminal-only workflows | ✅ | ✅ | ❌ | ❌ |
+| Docs stay close to the codebase | ✅ | ✅ | ✅ | ✅ |
 
 ## Options
 
 - `-w` Word wrap width
-- `-s` Style name (dark/light/notty/auto) or JSON style path
-- `-p` Force pager output (overrides `--no-pager`)
-- `--no-pager` Disable default pager (pager is on by default for TTY)
+- `-s` Style name (`dark`, `light`, `notty`, `auto`) or JSON style path
+- `-p` Force pager output, overriding `--no-pager`
+- `--no-pager` Disable default pager; pager is on by default for TTY
 - `--pdf` Export Mermaid diagrams to PDF via stdout
+- `--version` Show version information
 
 ## Config
 
-glowm reads the config file from the OS-specific user config directory:
+`glowm` reads the config file from the OS-specific user config directory:
 
 - **macOS**: `~/Library/Application Support/glowm/config.json`
-- **Linux**: `~/.config/glowm/config.json` (or `$XDG_CONFIG_HOME/glowm/config.json`)
-- **Windows**: `%AppData%\glowm\config.json`
+- **Linux**: `~/.config/glowm/config.json` or `$XDG_CONFIG_HOME/glowm/config.json`
+- **Windows**: `%AppData%\\glowm\\config.json`
 
 Example:
 
@@ -46,21 +108,22 @@ Example:
 
 ## Requirements
 
-- Go
-- Chrome/Chromium (required for Mermaid rendering and PDF export)
+- Go, when installing from source
+- Chrome or Chromium, required for Mermaid rendering and PDF export
+- A terminal with image support for inline diagrams: iTerm2, Kitty, or Ghostty
 
-## Mermaid rendering
+## Launch notes
 
-- iTerm2 / Kitty / Ghostty: Mermaid diagrams are rendered inline as images
-- Other terminals: Mermaid blocks are shown as code
+Maintainers can use [`docs/launch-kit.md`](docs/launch-kit.md) for English launch copy and [`docs/global-launch-checklist.md`](docs/global-launch-checklist.md) for repository metadata and posting order.
 
-## Install (Homebrew)
+## Contributing
 
-```bash
-brew tap atani/tap
-brew install glowm
-```
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for development notes.
 
 ## Support
 
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=github)](https://github.com/sponsors/atani)
+
+## License
+
+MIT. See [LICENSE](LICENSE).

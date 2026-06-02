@@ -9,3 +9,4 @@
 
 /docs/*
 !/docs/README-demo.png
+!/docs/*.md
