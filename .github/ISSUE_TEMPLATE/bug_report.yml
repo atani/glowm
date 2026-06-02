@@ -1,0 +1,46 @@
+name: Bug report
+description: Report a problem with glowm
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Terminal rendering issues are much easier to fix with environment details.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      description: Include a minimal Markdown/Mermaid example if possible.
+      placeholder: |
+        1. Run `glowm ...`
+        2. See ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: glowm version
+      placeholder: "glowm --version"
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: "macOS 15, Ubuntu 24.04, Windows 11, ..."
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal
+      placeholder: "iTerm2, Kitty, Ghostty, WezTerm, tmux, SSH, ..."
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      render: text
