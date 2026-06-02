@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -24,43 +25,64 @@ var (
 	date    = "unknown"
 )
 
+// options holds parsed command-line flags.
+type options struct {
+	width       int
+	style       string
+	usePager    bool
+	noPager     bool
+	pdf         bool
+	showVersion bool
+	positional  []string
+}
+
+// parseFlags parses argv (excluding the program name) into options.
+func parseFlags(args []string) (options, error) {
+	fs := flag.NewFlagSet("glowm", flag.ContinueOnError)
+	var opts options
+	fs.IntVar(&opts.width, "w", 0, "word wrap width")
+	fs.StringVar(&opts.style, "s", "auto", "style name or JSON path")
+	fs.BoolVar(&opts.usePager, "p", false, "force pager output")
+	fs.BoolVar(&opts.noPager, "no-pager", false, "disable pager")
+	fs.BoolVar(&opts.pdf, "pdf", false, "output mermaid diagrams as PDF to stdout")
+	fs.BoolVar(&opts.showVersion, "version", false, "show version information")
+	if err := fs.Parse(args); err != nil {
+		return options{}, err
+	}
+	opts.positional = fs.Args()
+	return opts, nil
+}
+
 func main() {
-	var (
-		width       = flag.Int("w", 0, "word wrap width")
-		style       = flag.String("s", "auto", "style name or JSON path")
-		usePager    = flag.Bool("p", false, "force pager output")
-		noPager     = flag.Bool("no-pager", false, "disable pager")
-		pdf         = flag.Bool("pdf", false, "output mermaid diagrams as PDF to stdout")
-		showVersion = flag.Bool("version", false, "show version information")
-	)
-	flag.Parse()
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
 
-	if *showVersion {
-		fmt.Printf("glowm %s (commit: %s, built: %s)\n", version, commit, date)
-		return
-	}
-
-	md, err := input.Read(flag.Args())
+// run executes the program with the given args, writing primary output to
+// stdout and diagnostics to stderr. It returns the process exit code.
+//
+// TTY-dependent rendering (terminal images, interactive pager) reads global
+// terminal state and is only engaged when stdout is a real terminal; in the
+// common non-TTY path the rendered markdown is written directly to stdout,
+// which makes run fully testable with in-memory writers.
+func run(args []string, stdout, stderr io.Writer) int {
+	opts, err := parseFlags(args)
 	if err != nil {
-		exitWithError(err)
+		// flag already reported the error to its own output.
+		return 2
 	}
 
-	if *pdf {
-		result, err := markdown.ExtractMermaid(md, false)
-		if err != nil {
-			exitWithError(err)
-		}
-		if len(result.Blocks) == 0 {
-			exitWithError(errors.New("no mermaid blocks found"))
-		}
-		pdfBytes, err := mermaid.RenderPDF(result.Blocks)
-		if err != nil {
-			exitWithError(err)
-		}
-		if _, err := os.Stdout.Write(pdfBytes); err != nil {
-			exitWithError(err)
-		}
-		return
+	if opts.showVersion {
+		fmt.Fprintf(stdout, "glowm %s (commit: %s, built: %s)\n", version, commit, date)
+		return 0
+	}
+
+	md, err := input.Read(opts.positional)
+	if err != nil {
+		return fail(stderr, err)
+	}
+
+	if opts.pdf {
+		return runPDF(md, stdout, stderr)
 	}
 
 	stdoutTTY := terminal.StdoutIsTTY()
@@ -69,86 +91,112 @@ func main() {
 	cfg := config.Load()
 	pagerMode := pager.Mode(strings.ToLower(cfg.Pager.Mode))
 	if !pager.ValidMode(pagerMode) {
-		fmt.Fprintf(os.Stderr, "glowm: unknown pager mode %q, using more\n", cfg.Pager.Mode)
+		fmt.Fprintf(stderr, "glowm: unknown pager mode %q, using more\n", cfg.Pager.Mode)
 		pagerMode = pager.ModeMore
 	}
-	isPagerEnabledByDefault := stdoutTTY && !*noPager
-	shouldUsePager := *usePager || isPagerEnabledByDefault
+	shouldUsePager := opts.usePager || (stdoutTTY && !opts.noPager)
 
 	if stdoutTTY && imageFormat != termimage.FormatNone {
-		result, err := markdown.ExtractMermaidWithMarkers(md)
-		if err != nil {
-			exitWithError(err)
-		}
-		if len(result.Blocks) > 0 {
-			w := *width
-			if w == 0 {
-				w = terminal.StdoutWidth(80)
-			}
-			images, renderErr := mermaid.RenderPNGs(result.Blocks, w)
-			if renderErr == nil {
-				output, err := render.ANSI(result.Markdown, render.RenderOptions{
-					Width: w,
-					Style: *style,
-					TTY:   stdoutTTY,
-				})
-				if err != nil {
-					exitWithError(err)
-				}
-				output = termimage.ReplaceMarkersWithImages(output, result.Markers, images, imageFormat, w)
-
-				if shouldUsePager {
-					if err := pager.PageWithMode(output, pagerMode); err != nil {
-						exitWithError(err)
-					}
-					return
-				}
-				if _, err := fmt.Fprint(os.Stdout, output); err != nil {
-					exitWithError(err)
-				}
-				return
-			}
-			// Mermaid rendering failed — fall through to text-only output.
-			fmt.Fprintf(os.Stderr, "warning: mermaid rendering failed: %v\n", renderErr)
+		handled, code := runWithImages(md, opts, stdoutTTY, imageFormat, pagerMode, shouldUsePager, stdout, stderr)
+		if handled {
+			return code
 		}
 	}
 
-	keepBlocks := stdoutTTY
-	result, err := markdown.ExtractMermaid(md, keepBlocks)
+	result, err := markdown.ExtractMermaid(md, stdoutTTY)
 	if err != nil {
-		exitWithError(err)
+		return fail(stderr, err)
 	}
 
-	w := *width
+	w := opts.width
 	if w == 0 {
 		w = terminal.StdoutWidth(80)
 	}
 
 	output, err := render.ANSI(result.Markdown, render.RenderOptions{
 		Width: w,
-		Style: *style,
+		Style: opts.style,
 		TTY:   stdoutTTY,
 	})
 	if err != nil {
-		exitWithError(err)
+		return fail(stderr, err)
 	}
 
 	if shouldUsePager && stdoutTTY {
 		if err := pager.PageWithMode(output, pagerMode); err != nil {
-			exitWithError(err)
+			return fail(stderr, err)
 		}
-		return
+		return 0
 	}
 
-	if _, err := fmt.Fprint(os.Stdout, output); err != nil {
-		exitWithError(err)
+	if _, err := fmt.Fprint(stdout, output); err != nil {
+		return fail(stderr, err)
 	}
+	return 0
 }
 
-func exitWithError(err error) {
-	if err == nil {
-		os.Exit(0)
+// runPDF renders mermaid blocks to PDF bytes written to stdout.
+func runPDF(md string, stdout, stderr io.Writer) int {
+	result, err := markdown.ExtractMermaid(md, false)
+	if err != nil {
+		return fail(stderr, err)
 	}
-	fmt.Fprintln(os.Stderr, render.FormatError(err))
-	os.Exit(1)
+	if len(result.Blocks) == 0 {
+		return fail(stderr, errors.New("no mermaid blocks found"))
+	}
+	pdfBytes, err := mermaid.RenderPDF(result.Blocks)
+	if err != nil {
+		return fail(stderr, err)
+	}
+	if _, err := stdout.Write(pdfBytes); err != nil {
+		return fail(stderr, err)
+	}
+	return 0
+}
+
+// runWithImages renders markdown with inline terminal images. It returns
+// handled=false when there are no mermaid blocks or rendering fails, so the
+// caller can fall back to the text-only path.
+func runWithImages(md string, opts options, stdoutTTY bool, imageFormat termimage.Format, pagerMode pager.Mode, shouldUsePager bool, stdout, stderr io.Writer) (handled bool, code int) {
+	result, err := markdown.ExtractMermaidWithMarkers(md)
+	if err != nil {
+		return true, fail(stderr, err)
+	}
+	if len(result.Blocks) == 0 {
+		return false, 0
+	}
+	w := opts.width
+	if w == 0 {
+		w = terminal.StdoutWidth(80)
+	}
+	images, renderErr := mermaid.RenderPNGs(result.Blocks, w)
+	if renderErr != nil {
+		fmt.Fprintf(stderr, "warning: mermaid rendering failed: %v\n", renderErr)
+		return false, 0
+	}
+	output, err := render.ANSI(result.Markdown, render.RenderOptions{
+		Width: w,
+		Style: opts.style,
+		TTY:   stdoutTTY,
+	})
+	if err != nil {
+		return true, fail(stderr, err)
+	}
+	output = termimage.ReplaceMarkersWithImages(output, result.Markers, images, imageFormat, w)
+	if shouldUsePager {
+		if err := pager.PageWithMode(output, pagerMode); err != nil {
+			return true, fail(stderr, err)
+		}
+		return true, 0
+	}
+	if _, err := fmt.Fprint(stdout, output); err != nil {
+		return true, fail(stderr, err)
+	}
+	return true, 0
+}
+
+// fail writes a formatted error to stderr and returns exit code 1.
+func fail(stderr io.Writer, err error) int {
+	fmt.Fprintln(stderr, render.FormatError(err))
+	return 1
 }

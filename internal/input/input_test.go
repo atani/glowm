@@ -72,6 +72,58 @@ func TestRead_StdinDash(t *testing.T) {
 	}
 }
 
+func TestRead_NoArgsWithPipedStdin(t *testing.T) {
+	// Empty args with data available on stdin (a pipe) must read it, covering
+	// the stdinHasData()==true branch and the readStdin path via Read(nil).
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	origStdin := os.Stdin
+	os.Stdin = r
+	defer func() { os.Stdin = origStdin }()
+
+	go func() {
+		w.WriteString("# from pipe\n")
+		w.Close()
+	}()
+
+	got, err := Read(nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "# from pipe\n" {
+		t.Fatalf("got %q, want '# from pipe\\n'", got)
+	}
+}
+
+func TestRead_StdinTooLarge(t *testing.T) {
+	// Piping more than maxInputSize bytes via "-" must be rejected.
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	origStdin := os.Stdin
+	os.Stdin = r
+	defer func() { os.Stdin = origStdin }()
+
+	go func() {
+		chunk := make([]byte, 1<<20) // 1 MiB
+		for range 11 {               // 11 MiB > 10 MiB limit
+			w.Write(chunk)
+		}
+		w.Close()
+	}()
+
+	_, err = Read([]string{"-"})
+	if err == nil {
+		t.Fatal("expected error for oversized stdin")
+	}
+	if !strings.Contains(err.Error(), "too large") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestRead_FileTooLarge(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "big.md")

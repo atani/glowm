@@ -197,3 +197,55 @@ func TestExtractMermaidIndentedFenceClosing(t *testing.T) {
 		t.Fatalf("expected 1 block, got %d", len(res.Blocks))
 	}
 }
+
+func TestFenceStart(t *testing.T) {
+	tests := []struct {
+		name      string
+		line      string
+		wantFence string
+		wantOK    bool
+	}{
+		{"backtick fence", "```", "```", true},
+		{"backtick fence with info", "```mermaid", "```", true},
+		{"longer backtick fence", "````", "````", true},
+		{"tilde fence", "~~~", "~~~", true},
+		{"tilde fence with info", "~~~go", "~~~", true},
+		{"too short", "``", "", false},
+		{"not a fence", "plain text", "", false},
+		{"empty", "", "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotFence, gotOK := fenceStart(tt.line)
+			if gotFence != tt.wantFence || gotOK != tt.wantOK {
+				t.Errorf("fenceStart(%q) = (%q,%v), want (%q,%v)",
+					tt.line, gotFence, gotOK, tt.wantFence, tt.wantOK)
+			}
+		})
+	}
+}
+
+func TestIsFenceEnd(t *testing.T) {
+	tests := []struct {
+		name  string
+		line  string
+		fence string
+		want  bool
+	}{
+		{"exact match", "```", "```", true},
+		{"longer closing allowed", "````", "```", true},
+		{"shorter closing rejected", "``", "```", false},
+		{"trailing spaces allowed", "```   ", "```", true},
+		{"leading indent allowed", "  ```", "```", true},
+		{"different char rejected", "~~~", "```", false},
+		{"mixed chars rejected", "``~", "```", false},
+		{"tilde fence closes tilde", "~~~", "~~~", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isFenceEnd(tt.line, tt.fence); got != tt.want {
+				t.Errorf("isFenceEnd(%q,%q) = %v, want %v", tt.line, tt.fence, got, tt.want)
+			}
+		})
+	}
+}

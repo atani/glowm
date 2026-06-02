@@ -2,6 +2,8 @@ package render
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -143,5 +145,58 @@ func TestANSI_ZeroWidth(t *testing.T) {
 	}
 	if output == "" {
 		t.Fatal("expected non-empty output")
+	}
+}
+
+func TestANSI_AutoStyleWithTTY(t *testing.T) {
+	// auto/empty style with TTY=true exercises the termenv background
+	// detection branch (dark vs light) and the heading-prefix stripping.
+	md := "# Hello\n\nWorld\n"
+	for _, style := range []string{"", "auto"} {
+		t.Run("style="+style, func(t *testing.T) {
+			output, err := ANSI(md, RenderOptions{Width: 80, Style: style, TTY: true})
+			if err != nil {
+				t.Fatalf("ANSI() error: %v", err)
+			}
+			if !strings.Contains(output, "Hello") {
+				t.Errorf("expected heading text in output, got %q", output)
+			}
+			// withoutHeadingPrefix removes the leading "# " glamour prefix.
+			if strings.Contains(output, "# Hello") {
+				t.Errorf("heading prefix should be stripped, got %q", output)
+			}
+		})
+	}
+}
+
+func TestANSI_StandardNamedStyles(t *testing.T) {
+	md := "# Title\n\nbody text\n"
+	for _, style := range []string{"notty", "ascii", "dracula", "pink"} {
+		t.Run(style, func(t *testing.T) {
+			output, err := ANSI(md, RenderOptions{Width: 80, Style: style, TTY: true})
+			if err != nil {
+				t.Fatalf("ANSI(style=%q) error: %v", style, err)
+			}
+			if !strings.Contains(output, "Title") {
+				t.Errorf("style %q output missing title: %q", style, output)
+			}
+		})
+	}
+}
+
+func TestANSI_ValidStyleFile(t *testing.T) {
+	// A well-formed style JSON file must be loaded via WithStylesFromJSONFile.
+	dir := t.TempDir()
+	stylePath := filepath.Join(dir, "style.json")
+	if err := os.WriteFile(stylePath, []byte(`{"document":{}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	md := "# Hello\n\nWorld\n"
+	output, err := ANSI(md, RenderOptions{Width: 80, Style: stylePath, TTY: true})
+	if err != nil {
+		t.Fatalf("ANSI() with valid style file error: %v", err)
+	}
+	if !strings.Contains(output, "Hello") {
+		t.Errorf("expected heading text in output, got %q", output)
 	}
 }

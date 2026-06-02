@@ -8,7 +8,30 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
+
+// withStdin temporarily replaces os.Stdin with a file containing the given
+// bytes, restoring the original on cleanup. Returns the replacement file.
+func withStdin(t *testing.T, data []byte) {
+	t.Helper()
+	f, err := os.CreateTemp(t.TempDir(), "stdin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.Write(data); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.Seek(0, 0); err != nil {
+		t.Fatal(err)
+	}
+	orig := os.Stdin
+	os.Stdin = f
+	t.Cleanup(func() {
+		os.Stdin = orig
+		f.Close()
+	})
+}
 
 func TestIsSixel_EnvOverride(t *testing.T) {
 	resetSixelCache()
@@ -129,6 +152,63 @@ func TestQuerySixelViaDA1_NonTTY(t *testing.T) {
 	// early-return path for CI environments.
 	if got := querySixelViaDA1(); got != false {
 		t.Fatalf("querySixelViaDA1() on non-TTY = %v, want false", got)
+	}
+}
+
+func TestReadDA1Response_FullResponse(t *testing.T) {
+	// A complete DA1 response (terminated by 'c') is read back verbatim.
+	withStdin(t, []byte("\x1b[?62;4;6c"))
+	resp, ok := readDA1Response(time.Second)
+	if !ok {
+		t.Fatal("expected ok=true for a terminated response")
+	}
+	if !bytes.ContainsRune(resp, 'c') {
+		t.Errorf("response %q missing terminator", resp)
+	}
+	if !parseSixelSupport(string(resp)) {
+		t.Errorf("expected attribute 4 to be detected in %q", resp)
+	}
+}
+
+func TestReadDA1Response_EOFWithoutTerminator(t *testing.T) {
+	// EOF reached after partial data (no 'c') still returns the buffered bytes.
+	withStdin(t, []byte("\x1b[?62;1"))
+	resp, ok := readDA1Response(time.Second)
+	if !ok {
+		t.Fatal("expected ok=true when partial data was buffered before EOF")
+	}
+	if string(resp) != "\x1b[?62;1" {
+		t.Errorf("resp = %q, want the buffered partial bytes", resp)
+	}
+}
+
+func TestReadDA1Response_EmptyEOF(t *testing.T) {
+	// Empty stdin reaches EOF with no data: ok must be false.
+	withStdin(t, nil)
+	resp, ok := readDA1Response(time.Second)
+	if ok {
+		t.Fatalf("expected ok=false on empty input, got resp=%q", resp)
+	}
+}
+
+// Note: the timeout path of readDA1Response is intentionally not unit-tested.
+// On timeout the reader goroutine remains blocked on os.Stdin.Read (documented
+// in sixel.go), which would race with restoring the swapped os.Stdin under the
+// -race detector. The timeout select branch is exercised indirectly in real
+// terminals where no DA1 response arrives.
+
+func TestDetectSixelUncached_EnvOverride(t *testing.T) {
+	t.Setenv("GLOWM_SIXEL", "1")
+	if !detectSixelUncached() {
+		t.Fatal("expected true when GLOWM_SIXEL=1")
+	}
+}
+
+func TestDetectSixelUncached_KnownTerminal(t *testing.T) {
+	t.Setenv("GLOWM_SIXEL", "")
+	t.Setenv("TERM_PROGRAM", "WezTerm")
+	if !detectSixelUncached() {
+		t.Fatal("expected true for WezTerm")
 	}
 }
 

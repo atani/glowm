@@ -94,6 +94,17 @@ func TestStripANSI_TruncatedEscape(t *testing.T) {
 	}
 }
 
+func TestStripANSI_MalformedCSIBeforeTerminator(t *testing.T) {
+	// A new ESC arrives inside a CSI sequence before its letter terminator.
+	// The first (malformed) sequence is abandoned and the second is parsed,
+	// so only the visible text survives.
+	input := "\x1b[31\x1b[0mvisible"
+	got := stripANSI(input)
+	if got != "visible" {
+		t.Fatalf("expected 'visible', got %q", got)
+	}
+}
+
 func TestStripANSI_Mixed(t *testing.T) {
 	input := "\x1b[1mbold\x1b[0m and \x1b]8;;url\x07link\x1b]8;;\x07"
 	got := stripANSI(input)

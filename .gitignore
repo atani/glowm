@@ -7,6 +7,9 @@
 # local
 /.serena
 
+# coverage
+/coverage.out
+
 /docs/*
 !/docs/README-demo.png
 !/docs/*.md

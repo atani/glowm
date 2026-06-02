@@ -103,6 +103,11 @@ func TestHighlightLine(t *testing.T) {
 		{"plain text match", "hello world", "hello world", "world", "hello \033[7mworld\033[0m"},
 		{"match with ANSI", "\033[31mhello\033[0m", "hello", "hello", "\033[31m\033[7mhello\033[0m\033[0m"},
 		{"multiple matches", "abc abc", "abc abc", "abc", "\033[7mabc\033[0m \033[7mabc\033[0m"},
+		// When plain length disagrees with the visible map derived from
+		// original, highlighting is skipped and original is returned as-is.
+		{"index map mismatch returns original", "ab", "abc", "a", "ab"},
+		// Adjacent (non-overlapping) matches both get highlighted.
+		{"adjacent matches", "aa", "aa", "a", "\033[7ma\033[0m\033[7ma\033[0m"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -215,6 +220,9 @@ func TestSkipEscapeSequence(t *testing.T) {
 		{"OSC with BEL", "\033]0;title\007", 0, 9},
 		{"lone ESC at end", "\033", 0, 0},
 		{"ESC with unknown", "\033X", 0, 1},
+		{"unterminated CSI", "\033[31", 0, 3},
+		{"unterminated OSC", "\033]0;title", 0, 8},
+		{"OSC with ST terminator", "\033]8;;x\033\\", 0, 7},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
