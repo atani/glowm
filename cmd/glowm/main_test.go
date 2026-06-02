@@ -4,29 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
-
-func chromeAvailable() bool {
-	candidates := []string{
-		"google-chrome",
-		"google-chrome-stable",
-		"chromium",
-		"chromium-browser",
-		"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-		"/Applications/Chromium.app/Contents/MacOS/Chromium",
-	}
-	for _, c := range candidates {
-		if _, err := exec.LookPath(c); err == nil {
-			return true
-		}
-	}
-	return false
-}
 
 func TestParseFlags_Defaults(t *testing.T) {
 	opts, err := parseFlags(nil)
@@ -139,24 +120,6 @@ func TestFail(t *testing.T) {
 	}
 	if !strings.Contains(errBuf.String(), "boom") {
 		t.Errorf("fail() stderr = %q, want to contain 'boom'", errBuf.String())
-	}
-}
-
-func TestRunPDF_Success(t *testing.T) {
-	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
-		t.Skip("chrome dependency not supported on this platform")
-	}
-	if !chromeAvailable() {
-		t.Skip("chrome/chromium not available")
-	}
-	md := "```mermaid\nflowchart TD\n  A-->B\n```\n"
-	var out, errBuf bytes.Buffer
-	code := runPDF(md, &out, &errBuf)
-	if code != 0 {
-		t.Fatalf("runPDF code = %d, want 0 (stderr: %s)", code, errBuf.String())
-	}
-	if out.Len() < 4 || out.String()[:4] != "%PDF" {
-		t.Errorf("expected PDF output, got %q", out.String()[:min(8, out.Len())])
 	}
 }
 

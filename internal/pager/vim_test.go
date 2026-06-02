@@ -319,6 +319,25 @@ func TestHistory(t *testing.T) {
 		}
 	})
 
+	t.Run("historyNext empty returns cur", func(t *testing.T) {
+		p := &pagerState{}
+		got := p.historyNext([]byte("keep"))
+		if string(got) != "keep" {
+			t.Errorf("got %q, want 'keep' when history empty", got)
+		}
+	})
+
+	t.Run("historyNext advances within range", func(t *testing.T) {
+		p := &pagerState{history: []string{"a", "b", "c"}, histIndex: 0}
+		got := p.historyNext(nil)
+		if string(got) != "b" {
+			t.Errorf("got %q, want 'b'", got)
+		}
+		if p.histIndex != 1 {
+			t.Errorf("histIndex = %d, want 1", p.histIndex)
+		}
+	})
+
 	t.Run("historyNext past end returns empty", func(t *testing.T) {
 		p := &pagerState{history: []string{"a", "b"}, histIndex: 1}
 		got := p.historyNext(nil)
