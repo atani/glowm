@@ -1,5 +1,7 @@
 # glowm
 
+[![codecov](https://codecov.io/gh/atani/glowm/branch/main/graph/badge.svg)](https://codecov.io/gh/atani/glowm)
+
 **Read Markdown architecture docs in your terminal — with Mermaid diagrams rendered inline.**
 
 `glowm` is a terminal-first Markdown viewer for developers who keep design docs, ADRs, and diagrams next to the code. It renders Markdown beautifully in the terminal, displays Mermaid diagrams inline on modern terminals like iTerm2, Kitty, and Ghostty, and can export diagrams to PDF when you need to share them outside the terminal.

@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -79,6 +80,18 @@ func TestLoad_EmptyConfig(t *testing.T) {
 	cfg := Load()
 	if cfg.Pager.Mode != "more" {
 		t.Errorf("mode = %q, want %q", cfg.Pager.Mode, "more")
+	}
+}
+
+func TestConfigPath(t *testing.T) {
+	// configPath builds on os.UserConfigDir(). Regardless of platform the
+	// result must point at glowm/config.json under the user config dir.
+	got, err := configPath()
+	if err != nil {
+		t.Fatalf("configPath() error: %v", err)
+	}
+	if !strings.HasSuffix(filepath.ToSlash(got), "glowm/config.json") {
+		t.Errorf("configPath() = %q, want suffix glowm/config.json", got)
 	}
 }
 
