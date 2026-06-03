@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.1](https://github.com/atani/glowm/compare/v0.3.0...v0.3.1) (2026-06-03)
+
+
+### Bug Fixes
+
+* **ci:** auto-fix Auto-merge Dependabot PRs failure ([#47](https://github.com/atani/glowm/issues/47)) ([1962cf4](https://github.com/atani/glowm/commit/1962cf4497588835449ecc59226ea87f222528cb))
+* **ci:** auto-fix go_modules in /. - Update [#1372506406](https://github.com/atani/glowm/issues/1372506406) failure ([#52](https://github.com/atani/glowm/issues/52)) ([d8132a8](https://github.com/atani/glowm/commit/d8132a87139c1f335ca6919f0b514d8adf52f58b))
+* **ci:** ignore glamour v2.0.0 Dependabot update ([#46](https://github.com/atani/glowm/issues/46)) ([1e1814e](https://github.com/atani/glowm/commit/1e1814e54825162c6b25662fc0ab08c839c80f21))
+
 ## [0.3.0](https://github.com/atani/glowm/compare/v0.2.2...v0.3.0) (2026-04-23)
 
 
