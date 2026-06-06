@@ -89,6 +89,18 @@ func TestReplaceMarkersWithImages_DoesNotPadImageRows(t *testing.T) {
 	}
 }
 
+func TestImageRows_Fallbacks(t *testing.T) {
+	if got := imageRows(pngFixture(t, 100, 100), 0); got != 1 {
+		t.Fatalf("imageRows(width=0) = %d, want 1", got)
+	}
+	if got := imageRows([]byte("not png"), 80); got != 1 {
+		t.Fatalf("imageRows(invalid png) = %d, want 1", got)
+	}
+	if got := imageRows(pngFixture(t, 100, 1), 1); got != 1 {
+		t.Fatalf("imageRows(tiny image) = %d, want minimum 1", got)
+	}
+}
+
 func TestStripANSI_NoEscapes(t *testing.T) {
 	input := "hello world"
 	if got := stripANSI(input); got != input {

@@ -183,11 +183,7 @@ func runWithImages(md string, opts options, stdoutTTY bool, imageFormat termimag
 		return true, fail(stderr, err)
 	}
 	if shouldUsePager {
-		if pagerMode == pager.ModeMore {
-			output = termimage.ReplaceMarkersWithImagesForPager(output, result.Markers, images, imageFormat, w)
-		} else {
-			output = termimage.ReplaceMarkersWithImages(output, result.Markers, images, imageFormat, w)
-		}
+		output = replaceMarkersForPagerMode(output, result.Markers, images, imageFormat, w, pagerMode)
 		if err := pager.PageWithMode(output, pagerMode); err != nil {
 			return true, fail(stderr, err)
 		}
@@ -198,6 +194,13 @@ func runWithImages(md string, opts options, stdoutTTY bool, imageFormat termimag
 		return true, fail(stderr, err)
 	}
 	return true, 0
+}
+
+func replaceMarkersForPagerMode(output string, markers []string, images [][]byte, imageFormat termimage.Format, width int, pagerMode pager.Mode) string {
+	if pagerMode == pager.ModeMore {
+		return termimage.ReplaceMarkersWithImagesForPager(output, markers, images, imageFormat, width)
+	}
+	return termimage.ReplaceMarkersWithImages(output, markers, images, imageFormat, width)
 }
 
 // fail writes a formatted error to stderr and returns exit code 1.
