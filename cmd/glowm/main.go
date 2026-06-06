@@ -182,13 +182,18 @@ func runWithImages(md string, opts options, stdoutTTY bool, imageFormat termimag
 	if err != nil {
 		return true, fail(stderr, err)
 	}
-	output = termimage.ReplaceMarkersWithImages(output, result.Markers, images, imageFormat, w)
 	if shouldUsePager {
+		if pagerMode == pager.ModeMore {
+			output = termimage.ReplaceMarkersWithImagesForPager(output, result.Markers, images, imageFormat, w)
+		} else {
+			output = termimage.ReplaceMarkersWithImages(output, result.Markers, images, imageFormat, w)
+		}
 		if err := pager.PageWithMode(output, pagerMode); err != nil {
 			return true, fail(stderr, err)
 		}
 		return true, 0
 	}
+	output = termimage.ReplaceMarkersWithImages(output, result.Markers, images, imageFormat, w)
 	if _, err := fmt.Fprint(stdout, output); err != nil {
 		return true, fail(stderr, err)
 	}
