@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/atani/glowm/compare/v0.3.1...v0.3.2) (2026-06-06)
+
+
+### Bug Fixes
+
+* account for Mermaid image height in more pager ([d509574](https://github.com/atani/glowm/commit/d509574eea0cc18943a4166e8eda4dd41e52cf3d))
+
 ## [0.3.1](https://github.com/atani/glowm/compare/v0.3.0...v0.3.1) (2026-06-03)
 
 
