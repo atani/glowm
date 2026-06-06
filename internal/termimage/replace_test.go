@@ -1,6 +1,10 @@
 package termimage
 
 import (
+	"bytes"
+	"image"
+	"image/color"
+	"image/png"
 	"strings"
 	"testing"
 )
@@ -52,6 +56,48 @@ func TestReplaceMarkersWithImages_FormatNone(t *testing.T) {
 	result := ReplaceMarkersWithImages(output, markers, images, FormatNone, 80)
 	if result != output {
 		t.Fatalf("expected unchanged output for FormatNone, got %q", result)
+	}
+}
+
+func TestReplaceMarkersWithImagesForPager_AddsImageRowMarker(t *testing.T) {
+	markers := []string{"GLOWM_MERMAID_0"}
+	images := [][]byte{pngFixture(t, 100, 100)}
+	output := "before\nGLOWM_MERMAID_0\nafter"
+
+	result := ReplaceMarkersWithImagesForPager(output, markers, images, FormatKitty, 80)
+
+	if strings.Contains(result, "GLOWM_MERMAID_0") {
+		t.Fatal("expected marker to be replaced")
+	}
+	if !strings.Contains(result, "\x1b]1337;glowm-rows=40\x07") {
+		t.Fatalf("expected pager row marker, got %q", result)
+	}
+	if got := strings.Count(result, "\n"); got != 2 {
+		t.Fatalf("expected pager replacement to preserve line count, got %d newlines", got)
+	}
+}
+
+func TestReplaceMarkersWithImages_DoesNotPadImageRows(t *testing.T) {
+	markers := []string{"GLOWM_MERMAID_0"}
+	images := [][]byte{pngFixture(t, 100, 100)}
+	output := "before\nGLOWM_MERMAID_0\nafter"
+
+	result := ReplaceMarkersWithImages(output, markers, images, FormatKitty, 80)
+
+	if got := strings.Count(result, "\n"); got != 2 {
+		t.Fatalf("expected normal replacement to preserve line count, got %d newlines", got)
+	}
+}
+
+func TestImageRows_Fallbacks(t *testing.T) {
+	if got := imageRows(pngFixture(t, 100, 100), 0); got != 1 {
+		t.Fatalf("imageRows(width=0) = %d, want 1", got)
+	}
+	if got := imageRows([]byte("not png"), 80); got != 1 {
+		t.Fatalf("imageRows(invalid png) = %d, want 1", got)
+	}
+	if got := imageRows(pngFixture(t, 100, 1), 1); got != 1 {
+		t.Fatalf("imageRows(tiny image) = %d, want minimum 1", got)
 	}
 }
 
@@ -165,4 +211,15 @@ func TestStripANSI_DCS(t *testing.T) {
 	if got != "visible" {
 		t.Fatalf("expected 'visible', got %q", got)
 	}
+}
+
+func pngFixture(t *testing.T, width, height int) []byte {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	img.Set(0, 0, color.White)
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
 }

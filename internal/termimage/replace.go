@@ -1,10 +1,23 @@
 package termimage
 
 import (
+	"bytes"
+	"image"
+	_ "image/png"
+	"math"
+	"strconv"
 	"strings"
 )
 
 func ReplaceMarkersWithImages(output string, markers []string, images [][]byte, format Format, widthCells int) string {
+	return replaceMarkersWithImages(output, markers, images, format, widthCells, false)
+}
+
+func ReplaceMarkersWithImagesForPager(output string, markers []string, images [][]byte, format Format, widthCells int) string {
+	return replaceMarkersWithImages(output, markers, images, format, widthCells, true)
+}
+
+func replaceMarkersWithImages(output string, markers []string, images [][]byte, format Format, widthCells int, padToImageRows bool) string {
 	if len(markers) == 0 || len(images) == 0 {
 		return output
 	}
@@ -17,6 +30,9 @@ func ReplaceMarkersWithImages(output string, markers []string, images [][]byte, 
 		if img == "" {
 			continue
 		}
+		if padToImageRows {
+			img = pagerRowsMarker(imageRows(images[i], widthCells)) + img
+		}
 		lookup[marker] = img
 	}
 
@@ -28,6 +44,26 @@ func ReplaceMarkersWithImages(output string, markers []string, images [][]byte, 
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+func pagerRowsMarker(rows int) string {
+	return "\x1b]1337;glowm-rows=" + strconv.Itoa(rows) + "\x07"
+}
+
+func imageRows(png []byte, widthCells int) int {
+	if widthCells <= 0 {
+		return 1
+	}
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(png))
+	if err != nil || cfg.Width <= 0 || cfg.Height <= 0 {
+		return 1
+	}
+	const cellAspect = 2.0 // terminal cells are roughly twice as tall as wide.
+	rows := int(math.Ceil((float64(cfg.Height) / float64(cfg.Width)) * float64(widthCells) / cellAspect))
+	if rows < 1 {
+		return 1
+	}
+	return rows
 }
 
 func stripANSI(s string) string {

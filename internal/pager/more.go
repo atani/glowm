@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"golang.org/x/term"
@@ -19,7 +20,7 @@ func pageMore(output string) error {
 		return printOutput(output)
 	}
 
-	lines := strings.Split(output, "\n")
+	lines, heights := splitDisplayLines(output)
 	reader, shouldClose := openTTYReader()
 	if shouldClose {
 		defer reader.Close()
@@ -48,10 +49,7 @@ func pageMore(output string) error {
 			fmt.Fprint(writer, ansiClearScreen)
 			shouldClearScreen = false
 		}
-		end := linePos + linesPerPage
-		if end > len(lines) {
-			end = len(lines)
-		}
+		end := pageEnd(heights, linePos, linesPerPage)
 		for j := linePos; j < end; j++ {
 			fmt.Fprint(writer, "\r")
 			fmt.Fprint(writer, lines[j])
@@ -90,4 +88,57 @@ func pageMore(output string) error {
 			// ignore other keys
 		}
 	}
+}
+
+func splitDisplayLines(output string) ([]string, []int) {
+	lines := strings.Split(output, "\n")
+	heights := make([]int, len(lines))
+	for i, line := range lines {
+		clean, rows := consumePagerRowsMarker(line)
+		lines[i] = clean
+		heights[i] = rows
+	}
+	return lines, heights
+}
+
+func pageEnd(heights []int, start, linesPerPage int) int {
+	if start >= len(heights) {
+		return len(heights)
+	}
+	used := 0
+	for end := start; end < len(heights); end++ {
+		rows := heights[end]
+		if rows < 1 {
+			rows = 1
+		}
+		if used > 0 && used+rows > linesPerPage {
+			return end
+		}
+		used += rows
+		if used >= linesPerPage {
+			return end + 1
+		}
+	}
+	return len(heights)
+}
+
+func consumePagerRowsMarker(line string) (string, int) {
+	const prefix = "\x1b]1337;glowm-rows="
+	start := strings.Index(line, prefix)
+	if start == -1 {
+		return line, 1
+	}
+	valueStart := start + len(prefix)
+	valueEnd := valueStart
+	for valueEnd < len(line) && line[valueEnd] >= '0' && line[valueEnd] <= '9' {
+		valueEnd++
+	}
+	if valueEnd == valueStart || valueEnd >= len(line) || line[valueEnd] != '\x07' {
+		return line, 1
+	}
+	rows, err := strconv.Atoi(line[valueStart:valueEnd])
+	if err != nil || rows < 1 {
+		rows = 1
+	}
+	return line[:start] + line[valueEnd+1:], rows
 }

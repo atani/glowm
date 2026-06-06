@@ -108,3 +108,48 @@ func TestPrintOutput(t *testing.T) {
 		t.Errorf("printOutput(empty) error: %v", err)
 	}
 }
+
+func TestPageEnd_AccountsForDisplayRows(t *testing.T) {
+	heights := []int{1, 1, 5, 1}
+
+	if got := pageEnd(heights, 0, 4); got != 2 {
+		t.Fatalf("pageEnd() = %d, want 2 so tall image starts next page", got)
+	}
+	if got := pageEnd(heights, 2, 4); got != 3 {
+		t.Fatalf("pageEnd() = %d, want 3 so oversized first item still renders", got)
+	}
+	if got := pageEnd(heights, len(heights), 4); got != len(heights) {
+		t.Fatalf("pageEnd() = %d, want len(heights)", got)
+	}
+	if got := pageEnd([]int{1, 1}, 0, 4); got != 2 {
+		t.Fatalf("pageEnd() = %d, want all lines when they fit", got)
+	}
+}
+
+func TestSplitDisplayLines_ConsumesPagerRowsMarker(t *testing.T) {
+	lines, heights := splitDisplayLines("a\n\x1b]1337;glowm-rows=7\x07image\nb")
+
+	if len(lines) != 3 || lines[1] != "image" {
+		t.Fatalf("unexpected lines: %#v", lines)
+	}
+	if heights[0] != 1 || heights[1] != 7 || heights[2] != 1 {
+		t.Fatalf("unexpected heights: %#v", heights)
+	}
+}
+
+func TestConsumePagerRowsMarker_InvalidMarkers(t *testing.T) {
+	tests := []string{
+		"plain",
+		"\x1b]1337;glowm-rows=\x07image",
+		"\x1b]1337;glowm-rows=0\x07image",
+		"\x1b]1337;glowm-rows=7image",
+	}
+	for _, input := range tests {
+		t.Run(input, func(t *testing.T) {
+			_, rows := consumePagerRowsMarker(input)
+			if rows != 1 {
+				t.Fatalf("rows = %d, want 1", rows)
+			}
+		})
+	}
+}

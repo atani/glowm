@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/atani/glowm/internal/pager"
+	"github.com/atani/glowm/internal/termimage"
 )
 
 func TestParseFlags_Defaults(t *testing.T) {
@@ -148,5 +151,21 @@ func TestRunPDF_NoMermaidBlocks(t *testing.T) {
 	}
 	if !strings.Contains(errBuf.String(), "no mermaid blocks") {
 		t.Errorf("stderr = %q, want 'no mermaid blocks'", errBuf.String())
+	}
+}
+
+func TestReplaceMarkersForPagerMode(t *testing.T) {
+	markers := []string{"GLOWM_MERMAID_0"}
+	images := [][]byte{[]byte("png")}
+	output := "GLOWM_MERMAID_0"
+
+	more := replaceMarkersForPagerMode(output, markers, images, termimage.FormatKitty, 80, pager.ModeMore)
+	if !strings.Contains(more, "glowm-rows=1") {
+		t.Fatalf("more mode should include pager row metadata: %q", more)
+	}
+
+	vim := replaceMarkersForPagerMode(output, markers, images, termimage.FormatKitty, 80, pager.ModeVim)
+	if strings.Contains(vim, "glowm-rows=") {
+		t.Fatalf("vim mode should not include pager row metadata: %q", vim)
 	}
 }
