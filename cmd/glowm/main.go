@@ -27,13 +27,14 @@ var (
 
 // options holds parsed command-line flags.
 type options struct {
-	width       int
-	style       string
-	usePager    bool
-	noPager     bool
-	pdf         bool
-	showVersion bool
-	positional  []string
+	width        int
+	style        string
+	usePager     bool
+	noPager      bool
+	pdf          bool
+	showVersion  bool
+	showLinkURLs bool
+	positional   []string
 }
 
 // parseFlags parses argv (excluding the program name) into options.
@@ -46,6 +47,7 @@ func parseFlags(args []string) (options, error) {
 	fs.BoolVar(&opts.noPager, "no-pager", false, "disable pager")
 	fs.BoolVar(&opts.pdf, "pdf", false, "output mermaid diagrams as PDF to stdout")
 	fs.BoolVar(&opts.showVersion, "version", false, "show version information")
+	fs.BoolVar(&opts.showLinkURLs, "show-link-urls", false, "show raw link URLs instead of just the link text")
 	if err := fs.Parse(args); err != nil {
 		return options{}, err
 	}
@@ -114,9 +116,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	output, err := render.ANSI(result.Markdown, render.RenderOptions{
-		Width: w,
-		Style: opts.style,
-		TTY:   stdoutTTY,
+		Width:        w,
+		Style:        opts.style,
+		TTY:          stdoutTTY,
+		ShowLinkURLs: opts.showLinkURLs,
 	})
 	if err != nil {
 		return fail(stderr, err)
@@ -175,9 +178,10 @@ func runWithImages(md string, opts options, stdoutTTY bool, imageFormat termimag
 		return false, 0
 	}
 	output, err := render.ANSI(result.Markdown, render.RenderOptions{
-		Width: w,
-		Style: opts.style,
-		TTY:   stdoutTTY,
+		Width:        w,
+		Style:        opts.style,
+		TTY:          stdoutTTY,
+		ShowLinkURLs: opts.showLinkURLs,
 	})
 	if err != nil {
 		return true, fail(stderr, err)

@@ -17,8 +17,18 @@ func TestParseFlags_Defaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseFlags(nil) error: %v", err)
 	}
-	if opts.width != 0 || opts.style != "auto" || opts.usePager || opts.noPager || opts.pdf || opts.showVersion {
+	if opts.width != 0 || opts.style != "auto" || opts.usePager || opts.noPager || opts.pdf || opts.showVersion || opts.showLinkURLs {
 		t.Errorf("unexpected defaults: %+v", opts)
+	}
+}
+
+func TestParseFlags_ShowLinkURLs(t *testing.T) {
+	opts, err := parseFlags([]string{"-show-link-urls", "file.md"})
+	if err != nil {
+		t.Fatalf("parseFlags error: %v", err)
+	}
+	if !opts.showLinkURLs {
+		t.Errorf("showLinkURLs = false, want true")
 	}
 }
 
