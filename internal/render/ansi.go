@@ -35,8 +35,8 @@ func ANSI(md string, opts RenderOptions) (string, error) {
 	// to recover the link target, so we never hide it there.
 	hideURLs := opts.TTY && !opts.ShowLinkURLs
 
-	cfg, ok := styleConfig(style, opts.TTY)
-	if ok {
+	cfg, builtin := styleConfig(style, opts.TTY)
+	if builtin {
 		if hideURLs {
 			hideLinkURLs(&cfg)
 		}
@@ -60,10 +60,13 @@ func ANSI(md string, opts RenderOptions) (string, error) {
 	return out, nil
 }
 
-// styleConfig resolves a style name to a concrete StyleConfig. The second
-// return value is false for custom JSON style paths, which the caller loads
-// via glamour directly. tty selects the dark/light variant for the "auto"
-// style.
+// styleConfig resolves a style name to a concrete StyleConfig. The returned
+// bool is true for built-in styles (the "auto"/dark/light variants and any
+// name in glamour's DefaultStyles, e.g. notty/ascii/dracula/pink/tokyo-night);
+// false means style is a path to a custom JSON style file that the caller must
+// load via glamour itself. tty selects the dark/light variant for the "auto"
+// style. The returned config is a value copy, so callers may mutate it (e.g.
+// hideLinkURLs) without touching glamour's shared package-level styles.
 func styleConfig(style string, tty bool) (ansi.StyleConfig, bool) {
 	switch style {
 	case "", "auto":
@@ -88,10 +91,21 @@ func styleConfig(style string, tty bool) (ansi.StyleConfig, bool) {
 }
 
 // hideLinkURLs suppresses the raw URL that glamour appends after a link's
-// text. glamour renders a link as "<text> <url>"; setting the Link style's
-// Format to an empty-producing template drops the URL token (and the OSC 8
-// escape it carries) while leaving the link text — which glamour wraps in its
-// own OSC 8 hyperlink — intact and clickable.
+// text. glamour renders a link as "<text> <url>"; the Link style's Format is a
+// Go text/template applied to the URL token, and `{{""}}` is a template that
+// renders to the empty string. (A plain empty Format string would instead be
+// treated as "no formatting", leaving the URL intact, so the explicit
+// empty-producing template is required.) This drops the URL token and the
+// OSC 8 escape it carries, while the link text — which glamour wraps in its
+// own OSC 8 hyperlink — stays intact and clickable.
+//
+// Known cosmetic limitation: glamour's link renderer prepends a hard-coded
+// " " prefix to the URL element (ansi/link.go) and writes that prefix before
+// the Format template runs, so a single space remains where the URL was. A
+// link followed by text therefore shows a double space. There is no
+// style-config-only way to remove it in the pinned glamour version, and a
+// regex post-process would be more fragile than this template approach, so the
+// residual space is accepted. See TestANSI_HiddenLinkLeavesResidualSpace.
 func hideLinkURLs(cfg *ansi.StyleConfig) {
 	cfg.Link.Format = `{{""}}`
 }

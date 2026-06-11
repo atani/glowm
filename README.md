@@ -84,7 +84,7 @@ Chrome or Chromium is required for Mermaid rendering and PDF export.
 ## Options
 
 - `-w` Word wrap width
-- `-s` Style name (`dark`, `light`, `notty`, `auto`) or JSON style path
+- `-s` Style name (`dark`, `light`, `auto`, `notty`, `ascii`, `dracula`, `pink`, `tokyo-night`) or JSON style path
 - `-p` Force pager output, overriding `--no-pager`
 - `--no-pager` Disable default pager; pager is on by default for TTY
 - `--pdf` Export Mermaid diagrams to PDF via stdout
@@ -101,6 +101,11 @@ and avoids the duplicated output bare URLs would otherwise produce.
 When output is piped or redirected (a non-TTY), OSC 8 hyperlinks are not
 clickable, so the raw URL is always kept to preserve the link target. Pass
 `--show-link-urls` to always print the raw URL, including on a TTY.
+
+Because the URL is hidden by default, the visible link text can differ from
+the actual target (the usual OSC 8 hyperlink tradeoff). When viewing Markdown
+from an untrusted source, run with `--show-link-urls` so you can see where each
+link points.
 
 ## Config
 
