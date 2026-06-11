@@ -88,7 +88,19 @@ Chrome or Chromium is required for Mermaid rendering and PDF export.
 - `-p` Force pager output, overriding `--no-pager`
 - `--no-pager` Disable default pager; pager is on by default for TTY
 - `--pdf` Export Mermaid diagrams to PDF via stdout
+- `--show-link-urls` Show raw link URLs instead of just the link text (see [Links](#links))
 - `--version` Show version information
+
+## Links
+
+In the terminal, `[text](url)` is shown as just `text`, rendered as an OSC 8
+hyperlink that you can click on terminals that support it (iTerm2, Kitty,
+Ghostty, and others). The URL is not printed inline, which keeps prose readable
+and avoids the duplicated output bare URLs would otherwise produce.
+
+When output is piped or redirected (a non-TTY), OSC 8 hyperlinks are not
+clickable, so the raw URL is always kept to preserve the link target. Pass
+`--show-link-urls` to always print the raw URL, including on a TTY.
 
 ## Config
 

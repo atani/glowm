@@ -14,6 +14,13 @@ type RenderOptions struct {
 	Width int
 	Style string
 	TTY   bool
+	// ShowLinkURLs keeps the raw URL that glamour appends after a link's
+	// text. When false (the default) the URL is hidden on a TTY so that
+	// [text](url) renders as just "text"; the text stays clickable via the
+	// OSC 8 hyperlink that glamour still emits. On a non-TTY (piped or
+	// redirected output) the URL is always kept, since OSC 8 links are not
+	// clickable there and hiding the URL would lose the link target.
+	ShowLinkURLs bool
 }
 
 func ANSI(md string, opts RenderOptions) (string, error) {
@@ -24,26 +31,19 @@ func ANSI(md string, opts RenderOptions) (string, error) {
 	}
 
 	style := strings.TrimSpace(opts.Style)
-	if style == "" || style == "auto" {
-		if !opts.TTY {
-			options = append(options, glamour.WithStandardStyle("notty"))
-		} else {
-			cfg := styles.DarkStyleConfig
-			if !termenv.HasDarkBackground() {
-				cfg = styles.LightStyleConfig
-			}
-			cfg = withoutHeadingPrefix(cfg)
-			options = append(options, glamour.WithStyles(cfg))
+	// hideURLs is gated on TTY: on a non-TTY the appended URL is the only way
+	// to recover the link target, so we never hide it there.
+	hideURLs := opts.TTY && !opts.ShowLinkURLs
+
+	cfg, ok := styleConfig(style, opts.TTY)
+	if ok {
+		if hideURLs {
+			hideLinkURLs(&cfg)
 		}
-	} else if style == "dark" {
-		cfg := withoutHeadingPrefix(styles.DarkStyleConfig)
 		options = append(options, glamour.WithStyles(cfg))
-	} else if style == "light" {
-		cfg := withoutHeadingPrefix(styles.LightStyleConfig)
-		options = append(options, glamour.WithStyles(cfg))
-	} else if style == "notty" || style == "ascii" || style == "dracula" || style == "pink" {
-		options = append(options, glamour.WithStandardStyle(style))
 	} else {
+		// Custom JSON style file: glamour loads it directly and we leave the
+		// link styling under the user's control.
 		options = append(options, glamour.WithStylesFromJSONFile(style))
 	}
 
@@ -58,6 +58,42 @@ func ANSI(md string, opts RenderOptions) (string, error) {
 		return "", err
 	}
 	return out, nil
+}
+
+// styleConfig resolves a style name to a concrete StyleConfig. The second
+// return value is false for custom JSON style paths, which the caller loads
+// via glamour directly. tty selects the dark/light variant for the "auto"
+// style.
+func styleConfig(style string, tty bool) (ansi.StyleConfig, bool) {
+	switch style {
+	case "", "auto":
+		if !tty {
+			return styles.NoTTYStyleConfig, true
+		}
+		cfg := styles.DarkStyleConfig
+		if !termenv.HasDarkBackground() {
+			cfg = styles.LightStyleConfig
+		}
+		return withoutHeadingPrefix(cfg), true
+	case "dark":
+		return withoutHeadingPrefix(styles.DarkStyleConfig), true
+	case "light":
+		return withoutHeadingPrefix(styles.LightStyleConfig), true
+	default:
+		if base, found := styles.DefaultStyles[style]; found {
+			return *base, true
+		}
+		return ansi.StyleConfig{}, false
+	}
+}
+
+// hideLinkURLs suppresses the raw URL that glamour appends after a link's
+// text. glamour renders a link as "<text> <url>"; setting the Link style's
+// Format to an empty-producing template drops the URL token (and the OSC 8
+// escape it carries) while leaving the link text — which glamour wraps in its
+// own OSC 8 hyperlink — intact and clickable.
+func hideLinkURLs(cfg *ansi.StyleConfig) {
+	cfg.Link.Format = `{{""}}`
 }
 
 func withoutHeadingPrefix(cfg ansi.StyleConfig) ansi.StyleConfig {

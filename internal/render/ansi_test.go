@@ -4,9 +4,26 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
+
+// osc8Re matches OSC 8 hyperlink tokens (the clickable link target glamour
+// emits around link text). sgrRe matches SGR color/style escapes. Stripping
+// both leaves the text a user actually sees on screen.
+var (
+	osc8Re = regexp.MustCompile("\x1b\\]8;[^\x07]*\x07")
+	sgrRe  = regexp.MustCompile("\x1b\\[[0-9;]*m")
+)
+
+// visibleText returns the rendered output with all escape sequences removed,
+// i.e. what the terminal displays as plain characters.
+func visibleText(s string) string {
+	s = osc8Re.ReplaceAllString(s, "")
+	s = sgrRe.ReplaceAllString(s, "")
+	return s
+}
 
 func TestANSI_URLNotBroken(t *testing.T) {
 	// Long URL that would be broken by word wrap if not handled properly
@@ -85,6 +102,70 @@ func TestANSI_MultipleURLsNotBroken(t *testing.T) {
 	}
 	if !strings.Contains(output, "glow/issues/286") {
 		t.Errorf("Second URL missing or broken in output:\n%s", output)
+	}
+}
+
+func TestANSI_HidesLinkURLOnTTY(t *testing.T) {
+	const url = "https://go.dev"
+	md := "See [the Go website](" + url + ") for details.\n"
+
+	output, err := ANSI(md, RenderOptions{Width: 80, Style: "dark", TTY: true})
+	if err != nil {
+		t.Fatalf("ANSI() error: %v", err)
+	}
+
+	vis := visibleText(output)
+	if !strings.Contains(vis, "the Go website") {
+		t.Errorf("link text should remain visible, got %q", vis)
+	}
+	if strings.Contains(vis, url) {
+		t.Errorf("raw URL should be hidden on a TTY, got visible %q", vis)
+	}
+	// The URL must still be present as the OSC 8 hyperlink target so the text
+	// stays clickable; it lives in the raw output but not the visible text.
+	if !strings.Contains(output, url) {
+		t.Errorf("URL should remain as the OSC 8 hyperlink target, got %q", output)
+	}
+}
+
+func TestANSI_HidesBareURLDuplicateOnTTY(t *testing.T) {
+	// A bare URL is rendered by glamour as both link text and appended URL,
+	// producing a duplicate. Hiding the appended URL leaves a single copy.
+	const url = "https://example.com"
+	output, err := ANSI("Visit "+url+" now.\n", RenderOptions{Width: 80, Style: "dark", TTY: true})
+	if err != nil {
+		t.Fatalf("ANSI() error: %v", err)
+	}
+	if n := strings.Count(visibleText(output), url); n != 1 {
+		t.Errorf("bare URL should appear exactly once in visible text, got %d in %q", n, visibleText(output))
+	}
+}
+
+func TestANSI_ShowLinkURLsKeepsURL(t *testing.T) {
+	const url = "https://go.dev"
+	md := "See [the Go website](" + url + ") for details.\n"
+
+	output, err := ANSI(md, RenderOptions{Width: 80, Style: "dark", TTY: true, ShowLinkURLs: true})
+	if err != nil {
+		t.Fatalf("ANSI() error: %v", err)
+	}
+	if !strings.Contains(visibleText(output), url) {
+		t.Errorf("raw URL should be visible when ShowLinkURLs is set, got %q", visibleText(output))
+	}
+}
+
+func TestANSI_NonTTYKeepsLinkURL(t *testing.T) {
+	// On a non-TTY, OSC 8 links are not clickable, so the URL must stay
+	// visible regardless of the (default) ShowLinkURLs value.
+	const url = "https://go.dev"
+	md := "See [the Go website](" + url + ") for details.\n"
+
+	output, err := ANSI(md, RenderOptions{Width: 80, Style: "dark", TTY: false})
+	if err != nil {
+		t.Fatalf("ANSI() error: %v", err)
+	}
+	if !strings.Contains(visibleText(output), url) {
+		t.Errorf("raw URL should stay visible on a non-TTY, got %q", visibleText(output))
 	}
 }
 
