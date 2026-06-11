@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/atani/glowm/compare/v0.3.2...v0.4.0) (2026-06-11)
+
+
+### Features
+
+* render markdown links as text-only OSC 8 hyperlinks on a TTY ([#63](https://github.com/atani/glowm/issues/63)) ([4eb66c9](https://github.com/atani/glowm/commit/4eb66c9c7ba18f7dd988bfdb3f148e909ccde47a))
+
 ## [0.3.2](https://github.com/atani/glowm/compare/v0.3.1...v0.3.2) (2026-06-06)
 
 
