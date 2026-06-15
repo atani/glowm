@@ -7,7 +7,7 @@ require (
 	github.com/chromedp/cdproto v0.0.0-20260321001828-e3e3800016bc
 	github.com/chromedp/chromedp v0.15.1
 	github.com/mattn/go-runewidth v0.0.24
-	github.com/mattn/go-sixel v0.0.9
+	github.com/mattn/go-sixel v0.0.11
 	github.com/muesli/termenv v0.16.0
 	golang.org/x/term v0.44.0
 )
