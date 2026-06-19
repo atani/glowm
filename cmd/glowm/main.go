@@ -16,6 +16,7 @@ import (
 	"github.com/atani/glowm/internal/render"
 	"github.com/atani/glowm/internal/termimage"
 	"github.com/atani/glowm/internal/terminal"
+	"github.com/atani/glowm/internal/watch"
 )
 
 // Version information (set by goreleaser ldflags)
@@ -34,6 +35,8 @@ type options struct {
 	pdf          bool
 	showVersion  bool
 	showLinkURLs bool
+	watch        bool
+	noWatch      bool
 	positional   []string
 }
 
@@ -48,6 +51,8 @@ func parseFlags(args []string) (options, error) {
 	fs.BoolVar(&opts.pdf, "pdf", false, "output mermaid diagrams as PDF to stdout")
 	fs.BoolVar(&opts.showVersion, "version", false, "show version information")
 	fs.BoolVar(&opts.showLinkURLs, "show-link-urls", false, "show raw link URLs instead of just the link text")
+	fs.BoolVar(&opts.watch, "watch", false, "watch the input file and re-render on changes")
+	fs.BoolVar(&opts.noWatch, "no-watch", false, "disable watch (overrides config)")
 	if err := fs.Parse(args); err != nil {
 		return options{}, err
 	}
@@ -101,6 +106,22 @@ func run(args []string, stdout, stderr io.Writer) int {
 		pagerMode = pager.ModeMore
 	}
 	shouldUsePager := opts.usePager || (stdoutTTY && !opts.noPager)
+
+	// Watch mode re-renders and refreshes the pager when the file changes. It
+	// only applies to a real file rendered to a terminal; otherwise fall back to
+	// a one-shot render with a note.
+	shouldWatch := opts.watch || (cfg.Pager.Watch && !opts.noWatch)
+	if shouldWatch {
+		filePath := ""
+		if len(opts.positional) == 1 && opts.positional[0] != "-" {
+			filePath = opts.positional[0]
+		}
+		if filePath == "" || !stdoutTTY {
+			fmt.Fprintln(stderr, "glowm: watch ignored (requires a file argument and a terminal)")
+		} else {
+			return runWatch(filePath, opts, imageFormat, cfg.Mermaid.Theme, stderr)
+		}
+	}
 
 	if stdoutTTY && imageFormat != termimage.FormatNone {
 		handled, code := runWithImages(md, opts, stdoutTTY, imageFormat, pagerMode, shouldUsePager, cfg.Mermaid.Theme, stdout, stderr)
@@ -211,6 +232,80 @@ func runWithImages(md string, opts options, stdoutTTY bool, imageFormat termimag
 		return true, fail(stderr, err)
 	}
 	return true, 0
+}
+
+// runWatch renders path and keeps the less pager open, re-rendering and
+// refreshing in place whenever the file changes. Uses the smooth Kitty pager on
+// Kitty-graphics terminals and the text pager elsewhere.
+func runWatch(path string, opts options, imageFormat termimage.Format, mermaidTheme string, stderr io.Writer) int {
+	w := opts.width
+	if w == 0 {
+		w = terminal.StdoutWidth(80)
+	}
+	kitty := imageFormat == termimage.FormatKitty
+	theme := effectiveMermaidTheme(mermaidTheme)
+
+	// Resolve "auto" to a concrete style now, before the pager takes the
+	// terminal into raw mode. Re-rendering with "auto" on each reload would make
+	// glamour re-query the terminal background mid-pager, racing our input
+	// reader and flipping the text theme.
+	style := opts.style
+	if s := strings.TrimSpace(style); s == "" || strings.EqualFold(s, "auto") {
+		style = render.AutoStyle()
+	}
+
+	renderContent := func() (pager.Content, error) {
+		md, err := input.Read([]string{path})
+		if err != nil {
+			return pager.Content{}, err
+		}
+		if kitty {
+			res, err := markdown.ExtractMermaidWithMarkers(md)
+			if err != nil {
+				return pager.Content{}, err
+			}
+			if len(res.Blocks) > 0 {
+				if images, rerr := mermaid.RenderPNGs(res.Blocks, w, theme); rerr == nil {
+					out, err := render.ANSI(res.Markdown, render.RenderOptions{Width: w, Style: style, TTY: true, ShowLinkURLs: opts.showLinkURLs})
+					if err != nil {
+						return pager.Content{}, err
+					}
+					return pager.Content{Output: out, Markers: res.Markers, Images: images, WidthCells: w}, nil
+				}
+				// Mermaid render failed; fall through to plain text rendering so
+				// diagrams degrade to code blocks rather than showing raw markers.
+			}
+		}
+		res, err := markdown.ExtractMermaid(md, true)
+		if err != nil {
+			return pager.Content{}, err
+		}
+		out, err := render.ANSI(res.Markdown, render.RenderOptions{Width: w, Style: style, TTY: true, ShowLinkURLs: opts.showLinkURLs})
+		if err != nil {
+			return pager.Content{}, err
+		}
+		return pager.Content{Output: out}, nil
+	}
+
+	initial, err := renderContent()
+	if err != nil {
+		return fail(stderr, err)
+	}
+
+	watcher := watch.New(path, 0, 0)
+	watcher.Start()
+	defer watcher.Stop()
+
+	if kitty {
+		if err := pager.PageLessKittyWatch(initial, watcher.C, renderContent); err != nil {
+			return fail(stderr, err)
+		}
+	} else {
+		if err := pager.PageLessWatch(initial, watcher.C, renderContent); err != nil {
+			return fail(stderr, err)
+		}
+	}
+	return 0
 }
 
 func replaceMarkersForPagerMode(output string, markers []string, images [][]byte, imageFormat termimage.Format, width int, pagerMode pager.Mode) string {

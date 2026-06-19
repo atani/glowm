@@ -3,6 +3,7 @@ package pager
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -157,6 +158,19 @@ func newLessKittyState(output string, markers []string, images [][]byte, widthCe
 		totalRows:  total,
 		height:     height,
 	}
+}
+
+// applyContent rebuilds the pager from freshly rendered content (used by watch
+// mode), preserving the current scroll position and active search.
+func (p *lessKittyState) applyContent(c Content) {
+	np := newLessKittyState(c.Output, c.Markers, c.Images, c.WidthCells, p.height)
+	p.segs = np.segs
+	p.images = np.images
+	p.widthCells = np.widthCells
+	p.rowStart = np.rowStart
+	p.totalRows = np.totalRows
+	p.status = ""
+	p.clampTop()
 }
 
 func (p *lessKittyState) linesPerPage() int {
@@ -334,7 +348,7 @@ func (p *lessKittyState) search(dir searchDir) {
 	p.status = "pattern not found: " + p.lastSearch
 }
 
-func readKittyKey(r *bufio.Reader, w *bufio.Writer, p *lessKittyState) key {
+func readKittyKey(r io.ByteReader, w *bufio.Writer, p *lessKittyState) key {
 	b, err := r.ReadByte()
 	if err != nil {
 		return key{typ: keyQuit}
@@ -380,7 +394,7 @@ func readKittyKey(r *bufio.Reader, w *bufio.Writer, p *lessKittyState) key {
 	return key{typ: keyUnknown}
 }
 
-func readKittySearch(r *bufio.Reader, w *bufio.Writer, p *lessKittyState, prefix string) string {
+func readKittySearch(r io.ByteReader, w *bufio.Writer, p *lessKittyState, prefix string) string {
 	var buf []byte
 	p.status = prefix
 	p.drawStatus(w)

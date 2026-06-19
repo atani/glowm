@@ -16,6 +16,9 @@ type Config struct {
 // PagerConfig holds pager-specific settings.
 type PagerConfig struct {
 	Mode string `json:"mode"`
+	// Watch re-renders and refreshes the pager when the input file changes.
+	// Only applies when reading a file (not stdin) to a terminal.
+	Watch bool `json:"watch"`
 }
 
 // MermaidConfig holds Mermaid diagram rendering settings.

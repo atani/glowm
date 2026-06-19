@@ -3,6 +3,7 @@ package pager
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -35,21 +36,6 @@ func pageLess(output string) error {
 		return printOutput(output)
 	}
 
-	lines, heights := splitDisplayLines(output)
-
-	// Precompute search text and image flags per line. Image lines (height > 1,
-	// or carrying a raw image escape) are never searched or highlighted, since
-	// injecting reverse-video into image payload bytes would corrupt them.
-	plain := make([]string, len(lines))
-	isImage := make([]bool, len(lines))
-	for i, line := range lines {
-		if heights[i] > 1 || strings.Contains(line, "\x1bP") || strings.Contains(line, "\x1b]1337") {
-			isImage[i] = true
-			continue
-		}
-		plain[i] = stripANSI(line)
-	}
-
 	reader, shouldClose := openTTYReader()
 	if shouldClose {
 		defer reader.Close()
@@ -72,13 +58,7 @@ func pageLess(output string) error {
 	fmt.Fprint(writer, ansiAltScreenOn)
 	defer fmt.Fprint(os.Stdout, ansiAltScreenOff)
 
-	p := &lessState{
-		lines:   lines,
-		heights: heights,
-		plain:   plain,
-		isImage: isImage,
-		height:  height,
-	}
+	p := newLessState(output, height)
 
 	p.redraw(writer)
 	prev := p.viewKey()
@@ -116,6 +96,42 @@ type lessState struct {
 	lastSearch string
 	lastDir    searchDir
 	status     string
+}
+
+// newLessState builds a text-mode less pager from rendered output. Image lines
+// (height > 1, or carrying a raw image escape) are flagged so they are never
+// searched or highlighted, since injecting reverse-video into image payload
+// bytes would corrupt them.
+func newLessState(output string, height int) *lessState {
+	lines, heights := splitDisplayLines(output)
+	plain := make([]string, len(lines))
+	isImage := make([]bool, len(lines))
+	for i, line := range lines {
+		if heights[i] > 1 || strings.Contains(line, "\x1bP") || strings.Contains(line, "\x1b]1337") {
+			isImage[i] = true
+			continue
+		}
+		plain[i] = stripANSI(line)
+	}
+	return &lessState{
+		lines:   lines,
+		heights: heights,
+		plain:   plain,
+		isImage: isImage,
+		height:  height,
+	}
+}
+
+// applyContent rebuilds the pager from freshly rendered output (used by watch
+// mode), preserving the current scroll position.
+func (p *lessState) applyContent(c Content) {
+	np := newLessState(c.Output, p.height)
+	p.lines = np.lines
+	p.heights = np.heights
+	p.plain = np.plain
+	p.isImage = np.isImage
+	p.status = ""
+	p.clampTop()
 }
 
 func (p *lessState) linesPerPage() int {
@@ -310,7 +326,7 @@ func (p *lessState) search(dir searchDir) {
 	p.status = "pattern not found: " + p.lastSearch
 }
 
-func readLessKey(r *bufio.Reader, w *bufio.Writer, p *lessState) key {
+func readLessKey(r io.ByteReader, w *bufio.Writer, p *lessState) key {
 	b, err := r.ReadByte()
 	if err != nil {
 		return key{typ: keyQuit}
@@ -358,7 +374,7 @@ func readLessKey(r *bufio.Reader, w *bufio.Writer, p *lessState) key {
 
 // readLessSearch reads a search pattern at the bottom prompt until Enter, or
 // returns "" if cancelled with Esc.
-func readLessSearch(r *bufio.Reader, w *bufio.Writer, p *lessState, prefix string) string {
+func readLessSearch(r io.ByteReader, w *bufio.Writer, p *lessState, prefix string) string {
 	width := terminalWidth()
 	if width <= 0 {
 		width = 80

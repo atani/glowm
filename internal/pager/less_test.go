@@ -4,7 +4,7 @@ import "testing"
 
 // newLessState builds a less-mode state from plain text lines (each 1 row tall)
 // with a viewport tall enough for `visible` content rows.
-func newLessState(visible int, lines []string) *lessState {
+func newLessTestState(visible int, lines []string) *lessState {
 	heights := make([]int, len(lines))
 	plain := make([]string, len(lines))
 	isImage := make([]bool, len(lines))
@@ -23,7 +23,7 @@ func newLessState(visible int, lines []string) *lessState {
 
 func TestLessLineScroll(t *testing.T) {
 	lines := []string{"a", "b", "c", "d", "e", "f"}
-	p := newLessState(3, lines) // shows 3 lines per page
+	p := newLessTestState(3, lines) // shows 3 lines per page
 
 	p.handleKey(key{typ: keyDown})
 	if p.top != 1 {
@@ -44,7 +44,7 @@ func TestLessLineScroll(t *testing.T) {
 
 func TestLessPageAndHalfPage(t *testing.T) {
 	lines := []string{"l0", "l1", "l2", "l3", "l4", "l5", "l6", "l7", "l8", "l9"}
-	p := newLessState(4, lines) // 4 rows per page
+	p := newLessTestState(4, lines) // 4 rows per page
 
 	p.handleKey(key{typ: keyPageDown})
 	if p.top != 4 {
@@ -62,7 +62,7 @@ func TestLessPageAndHalfPage(t *testing.T) {
 
 func TestLessTopBottomClamp(t *testing.T) {
 	lines := []string{"l0", "l1", "l2", "l3", "l4", "l5"}
-	p := newLessState(3, lines) // 3 rows per page; last page starts at index 3
+	p := newLessTestState(3, lines) // 3 rows per page; last page starts at index 3
 
 	p.handleKey(key{typ: keyBottom})
 	if p.top != 3 {
@@ -82,7 +82,7 @@ func TestLessTopBottomClamp(t *testing.T) {
 func TestLessImageHeightAware(t *testing.T) {
 	// Line 1 is an image occupying 5 rows; the rest are 1-row text lines.
 	lines := []string{"text0", "IMG", "text2", "text3", "text4"}
-	p := newLessState(6, lines) // 6 rows per page
+	p := newLessTestState(6, lines) // 6 rows per page
 	p.heights[1] = 5
 	p.isImage[1] = true
 
@@ -98,7 +98,7 @@ func TestLessSearch(t *testing.T) {
 	// Trailing padding ensures the second match is not in the final page, so it
 	// can rest at the top of the viewport without being clamped to maxTop.
 	lines := []string{"alpha", "beta", "gamma", "delta", "beta again", "p1", "p2", "p3"}
-	p := newLessState(2, lines)
+	p := newLessTestState(2, lines)
 
 	p.handleKey(key{typ: keySearch, text: "beta"})
 	if p.top != 1 {
@@ -117,7 +117,7 @@ func TestLessSearch(t *testing.T) {
 
 func TestLessSearchSkipsImages(t *testing.T) {
 	lines := []string{"intro", "PAYLOAD", "match here"}
-	p := newLessState(2, lines)
+	p := newLessTestState(2, lines)
 	// Mark line 1 as an image whose raw payload happens to contain the pattern;
 	// search must not match or highlight it.
 	p.isImage[1] = true
