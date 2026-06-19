@@ -35,7 +35,10 @@ var configPathFunc = configPath
 func Load() Config {
 	defaultCfg := Config{
 		Pager: PagerConfig{
-			Mode: "more",
+			Mode: "less",
+		},
+		Mermaid: MermaidConfig{
+			Theme: "auto",
 		},
 	}
 
@@ -54,7 +57,10 @@ func Load() Config {
 		return defaultCfg
 	}
 	if cfg.Pager.Mode == "" {
-		cfg.Pager.Mode = "more"
+		cfg.Pager.Mode = "less"
+	}
+	if cfg.Mermaid.Theme == "" {
+		cfg.Mermaid.Theme = "auto"
 	}
 	return cfg
 }

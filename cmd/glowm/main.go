@@ -151,7 +151,7 @@ func runPDF(md, mermaidTheme string, stdout, stderr io.Writer) int {
 	if len(result.Blocks) == 0 {
 		return fail(stderr, errors.New("no mermaid blocks found"))
 	}
-	pdfBytes, err := mermaid.RenderPDF(result.Blocks, mermaidTheme)
+	pdfBytes, err := mermaid.RenderPDF(result.Blocks, effectiveMermaidTheme(mermaidTheme))
 	if err != nil {
 		return fail(stderr, err)
 	}
@@ -176,7 +176,7 @@ func runWithImages(md string, opts options, stdoutTTY bool, imageFormat termimag
 	if w == 0 {
 		w = terminal.StdoutWidth(80)
 	}
-	images, renderErr := mermaid.RenderPNGs(result.Blocks, w, mermaidTheme)
+	images, renderErr := mermaid.RenderPNGs(result.Blocks, w, effectiveMermaidTheme(mermaidTheme))
 	if renderErr != nil {
 		fmt.Fprintf(stderr, "warning: mermaid rendering failed: %v\n", renderErr)
 		return false, 0
@@ -218,6 +218,21 @@ func replaceMarkersForPagerMode(output string, markers []string, images [][]byte
 		return termimage.ReplaceMarkersWithImagesForPager(output, markers, images, imageFormat, width)
 	}
 	return termimage.ReplaceMarkersWithImages(output, markers, images, imageFormat, width)
+}
+
+// effectiveMermaidTheme resolves the configured theme. "auto" (or empty) becomes
+// "dark" or "default" based on the detected terminal background; any explicit
+// theme is passed through unchanged. Detection falls back to the light default
+// when the background can't be determined (e.g. output is not a terminal, as
+// when exporting a PDF to a file).
+func effectiveMermaidTheme(configured string) string {
+	if configured != "" && !strings.EqualFold(configured, "auto") {
+		return configured
+	}
+	if dark, ok := terminal.BackgroundIsDark(); ok && dark {
+		return "dark"
+	}
+	return "default"
 }
 
 // fail writes a formatted error to stderr and returns exit code 1.

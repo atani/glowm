@@ -120,10 +120,35 @@ Example:
 ```json
 {
   "pager": {
-    "mode": "vim"
+    "mode": "less"
+  },
+  "mermaid": {
+    "theme": "auto"
   }
 }
 ```
+
+### `pager.mode`
+
+How the interactive pager behaves (default: `less`).
+
+- `less` — scrolls a line at a time (`j`/`k`, arrows, mouse wheel), with
+  half-page (`d`/`u`), page (`space`/`b`), `g`/`G` for top/bottom, and `/` `?`
+  `n` `N` search. On Kitty-graphics terminals (Kitty, Ghostty), inline Mermaid
+  diagrams scroll smoothly along with the text. This is the default.
+- `more` — simple forward paging (`space` to advance, `b` to go back).
+- `vim` — full-screen pager with a moving cursor line and Vim-style motions.
+
+### `mermaid.theme`
+
+Color theme for rendered Mermaid diagrams, applied to both inline images and
+`--pdf` export (default: `auto`).
+
+- `auto` — detect the terminal background and use `dark` on a dark background,
+  otherwise the light default. Falls back to light when the background can't be
+  detected (for example when exporting a PDF to a file). This is the default.
+- `light` (alias `default`), `dark`, `forest`, `neutral`, `base` — force a
+  specific [Mermaid theme](https://mermaid.js.org/config/theming.html).
 
 ## Requirements
 

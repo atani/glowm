@@ -42,10 +42,12 @@ func resolveTheme(name string) (theme, background string) {
 }
 
 // IsKnownTheme reports whether name is a recognized Mermaid theme (so callers
-// can warn on a typo rather than silently falling back to the default).
+// can warn on a typo rather than silently falling back to the default). "auto"
+// means "detect from the terminal background" and is resolved by the caller
+// before reaching resolveTheme.
 func IsKnownTheme(name string) bool {
 	switch strings.ToLower(strings.TrimSpace(name)) {
-	case "", "light", "default", "dark", "forest", "neutral", "base":
+	case "", "auto", "light", "default", "dark", "forest", "neutral", "base":
 		return true
 	default:
 		return false
