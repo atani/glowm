@@ -24,6 +24,15 @@ import (
 // frame does not leak image memory in the terminal.
 const kittyDeleteAll = "\x1b_Ga=d,d=A\x1b\\"
 
+// Synchronized output (DEC mode 2026): the terminal buffers everything between
+// begin and end and presents it as a single atomic frame, so a clear-then-
+// repaint is never shown half-finished. Ghostty and Kitty support it; on
+// terminals that don't, these are ignored. This is the main flicker fix.
+const (
+	syncBegin = "\x1b[?2026h"
+	syncEnd   = "\x1b[?2026l"
+)
+
 // PageLessKitty pages output (which still contains the raw marker lines, not
 // baked-in image escapes) in less mode with smooth image scrolling. images is
 // indexed by marker order; widthCells is the render width used to size images.
@@ -60,14 +69,31 @@ func PageLessKitty(output string, markers []string, images [][]byte, widthCells 
 
 	p := newLessKittyState(output, markers, images, widthCells, height)
 	p.redraw(writer)
+	prev := p.viewKey()
 	for {
-		k := readKittyKey(bufReader, writer, p)
-		if p.handleKey(k) {
+		quit := p.handleKey(readKittyKey(bufReader, writer, p))
+		// Coalesce input that already arrived (fast key-repeat / mouse wheel)
+		// into a single repaint instead of one repaint per event.
+		for !quit && bufReader.Buffered() > 0 {
+			quit = p.handleKey(readKittyKey(bufReader, writer, p))
+		}
+		if quit {
 			break
 		}
-		p.redraw(writer)
+		// Skip the repaint entirely if nothing visible changed (e.g. scrolling
+		// past the top/bottom edge).
+		if cur := p.viewKey(); cur != prev {
+			p.redraw(writer)
+			prev = cur
+		}
 	}
 	return nil
+}
+
+// viewKey returns a value that changes whenever the visible frame would change,
+// so the render loop can skip no-op repaints.
+func (p *lessKittyState) viewKey() string {
+	return fmt.Sprintf("%d|%s|%s", p.rowTop, p.lastSearch, p.status)
 }
 
 // lessSeg is one logical line: either a text line (rows == 1) or an image
@@ -174,6 +200,7 @@ func (p *lessKittyState) segAt(row int) (int, int) {
 }
 
 func (p *lessKittyState) redraw(w *bufio.Writer) {
+	fmt.Fprint(w, syncBegin)
 	fmt.Fprint(w, kittyDeleteAll)
 	fmt.Fprint(w, ansiClearScreen)
 
@@ -204,6 +231,7 @@ func (p *lessKittyState) redraw(w *bufio.Writer) {
 		off = 0
 	}
 	p.drawStatus(w)
+	fmt.Fprint(w, syncEnd)
 	w.Flush()
 }
 

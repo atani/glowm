@@ -81,14 +81,29 @@ func pageLess(output string) error {
 	}
 
 	p.redraw(writer)
+	prev := p.viewKey()
 	for {
-		k := readLessKey(bufReader, writer, p)
-		if p.handleKey(k) {
+		quit := p.handleKey(readLessKey(bufReader, writer, p))
+		// Coalesce already-arrived input (fast key-repeat / mouse wheel) into a
+		// single repaint.
+		for !quit && bufReader.Buffered() > 0 {
+			quit = p.handleKey(readLessKey(bufReader, writer, p))
+		}
+		if quit {
 			break
 		}
-		p.redraw(writer)
+		if cur := p.viewKey(); cur != prev {
+			p.redraw(writer)
+			prev = cur
+		}
 	}
 	return nil
+}
+
+// viewKey returns a value that changes whenever the visible frame would change,
+// so the render loop can skip no-op repaints.
+func (p *lessState) viewKey() string {
+	return fmt.Sprintf("%d|%s|%s", p.top, p.lastSearch, p.status)
 }
 
 type lessState struct {
@@ -123,6 +138,7 @@ func (p *lessState) h(i int) int {
 }
 
 func (p *lessState) redraw(w *bufio.Writer) {
+	fmt.Fprint(w, syncBegin)
 	fmt.Fprint(w, ansiClearScreen)
 	end := pageEnd(p.heights, p.top, p.linesPerPage())
 	for i := p.top; i < end; i++ {
@@ -135,6 +151,7 @@ func (p *lessState) redraw(w *bufio.Writer) {
 		fmt.Fprint(w, "\r\n")
 	}
 	p.drawStatus(w, end)
+	fmt.Fprint(w, syncEnd)
 	w.Flush()
 }
 
