@@ -83,14 +83,18 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return fail(stderr, err)
 	}
 
+	cfg := config.Load()
+	if !mermaid.IsKnownTheme(cfg.Mermaid.Theme) {
+		fmt.Fprintf(stderr, "glowm: unknown mermaid theme %q, using default\n", cfg.Mermaid.Theme)
+	}
+
 	if opts.pdf {
-		return runPDF(md, stdout, stderr)
+		return runPDF(md, cfg.Mermaid.Theme, stdout, stderr)
 	}
 
 	stdoutTTY := terminal.StdoutIsTTY()
 	imageFormat := termimage.Detect()
 
-	cfg := config.Load()
 	pagerMode := pager.Mode(strings.ToLower(cfg.Pager.Mode))
 	if !pager.ValidMode(pagerMode) {
 		fmt.Fprintf(stderr, "glowm: unknown pager mode %q, using more\n", cfg.Pager.Mode)
@@ -99,7 +103,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	shouldUsePager := opts.usePager || (stdoutTTY && !opts.noPager)
 
 	if stdoutTTY && imageFormat != termimage.FormatNone {
-		handled, code := runWithImages(md, opts, stdoutTTY, imageFormat, pagerMode, shouldUsePager, stdout, stderr)
+		handled, code := runWithImages(md, opts, stdoutTTY, imageFormat, pagerMode, shouldUsePager, cfg.Mermaid.Theme, stdout, stderr)
 		if handled {
 			return code
 		}
@@ -139,7 +143,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 }
 
 // runPDF renders mermaid blocks to PDF bytes written to stdout.
-func runPDF(md string, stdout, stderr io.Writer) int {
+func runPDF(md, mermaidTheme string, stdout, stderr io.Writer) int {
 	result, err := markdown.ExtractMermaid(md, false)
 	if err != nil {
 		return fail(stderr, err)
@@ -147,7 +151,7 @@ func runPDF(md string, stdout, stderr io.Writer) int {
 	if len(result.Blocks) == 0 {
 		return fail(stderr, errors.New("no mermaid blocks found"))
 	}
-	pdfBytes, err := mermaid.RenderPDF(result.Blocks)
+	pdfBytes, err := mermaid.RenderPDF(result.Blocks, mermaidTheme)
 	if err != nil {
 		return fail(stderr, err)
 	}
@@ -160,7 +164,7 @@ func runPDF(md string, stdout, stderr io.Writer) int {
 // runWithImages renders markdown with inline terminal images. It returns
 // handled=false when there are no mermaid blocks or rendering fails, so the
 // caller can fall back to the text-only path.
-func runWithImages(md string, opts options, stdoutTTY bool, imageFormat termimage.Format, pagerMode pager.Mode, shouldUsePager bool, stdout, stderr io.Writer) (handled bool, code int) {
+func runWithImages(md string, opts options, stdoutTTY bool, imageFormat termimage.Format, pagerMode pager.Mode, shouldUsePager bool, mermaidTheme string, stdout, stderr io.Writer) (handled bool, code int) {
 	result, err := markdown.ExtractMermaidWithMarkers(md)
 	if err != nil {
 		return true, fail(stderr, err)
@@ -172,7 +176,7 @@ func runWithImages(md string, opts options, stdoutTTY bool, imageFormat termimag
 	if w == 0 {
 		w = terminal.StdoutWidth(80)
 	}
-	images, renderErr := mermaid.RenderPNGs(result.Blocks, w)
+	images, renderErr := mermaid.RenderPNGs(result.Blocks, w, mermaidTheme)
 	if renderErr != nil {
 		fmt.Fprintf(stderr, "warning: mermaid rendering failed: %v\n", renderErr)
 		return false, 0
@@ -187,6 +191,15 @@ func runWithImages(md string, opts options, stdoutTTY bool, imageFormat termimag
 		return true, fail(stderr, err)
 	}
 	if shouldUsePager {
+		// less mode on a Kitty-graphics terminal scrolls images smoothly by
+		// cropping them per row, so it needs the raw images and the unmodified
+		// marker lines rather than pre-baked image escapes.
+		if pagerMode == pager.ModeLess && imageFormat == termimage.FormatKitty {
+			if err := pager.PageLessKitty(output, result.Markers, images, w); err != nil {
+				return true, fail(stderr, err)
+			}
+			return true, 0
+		}
 		output = replaceMarkersForPagerMode(output, result.Markers, images, imageFormat, w, pagerMode)
 		if err := pager.PageWithMode(output, pagerMode); err != nil {
 			return true, fail(stderr, err)
@@ -201,7 +214,7 @@ func runWithImages(md string, opts options, stdoutTTY bool, imageFormat termimag
 }
 
 func replaceMarkersForPagerMode(output string, markers []string, images [][]byte, imageFormat termimage.Format, width int, pagerMode pager.Mode) string {
-	if pagerMode == pager.ModeMore {
+	if pagerMode == pager.ModeMore || pagerMode == pager.ModeLess {
 		return termimage.ReplaceMarkersWithImagesForPager(output, markers, images, imageFormat, width)
 	}
 	return termimage.ReplaceMarkersWithImages(output, markers, images, imageFormat, width)

@@ -9,12 +9,20 @@ import (
 
 // Config holds the application configuration.
 type Config struct {
-	Pager PagerConfig `json:"pager"`
+	Pager   PagerConfig   `json:"pager"`
+	Mermaid MermaidConfig `json:"mermaid"`
 }
 
 // PagerConfig holds pager-specific settings.
 type PagerConfig struct {
 	Mode string `json:"mode"`
+}
+
+// MermaidConfig holds Mermaid diagram rendering settings.
+type MermaidConfig struct {
+	// Theme selects the Mermaid color theme: "light"/"default", "dark",
+	// "forest", "neutral", or "base". Empty means default.
+	Theme string `json:"theme"`
 }
 
 // configPathFunc is the function used to determine the config file path.
