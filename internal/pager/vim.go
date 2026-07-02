@@ -3,6 +3,7 @@ package pager
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -237,7 +238,7 @@ func (p *pagerState) search(dir searchDir) {
 
 	// Search from cursor+step in the given direction
 	for i := 1; i < n; i++ {
-		idx := ((p.cursor + i*step) % n + n) % n
+		idx := ((p.cursor+i*step)%n + n) % n
 		if strings.Contains(p.plain[idx], p.lastSearch) {
 			p.cursor = idx
 			p.status = ""
@@ -425,7 +426,7 @@ func readKey(r *bufio.Reader, w *bufio.Writer, p *pagerState) key {
 	return key{typ: keyUnknown}
 }
 
-func readEscapeKey(r *bufio.Reader) key {
+func readEscapeKey(r io.ByteReader) key {
 	seq, _ := r.ReadByte()
 	if seq != '[' {
 		return key{typ: keyUnknown}

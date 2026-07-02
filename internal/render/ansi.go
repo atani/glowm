@@ -60,6 +60,19 @@ func ANSI(md string, opts RenderOptions) (string, error) {
 	return out, nil
 }
 
+// AutoStyle resolves the "auto" style to a concrete "dark" or "light" by
+// querying the terminal background. Callers that re-render repeatedly while
+// holding the terminal in raw mode (e.g. watch mode) must call this once up
+// front and pass the result, because the background query reads from the
+// terminal and would otherwise race the pager's input reader on each redraw,
+// flipping the theme.
+func AutoStyle() string {
+	if termenv.HasDarkBackground() {
+		return "dark"
+	}
+	return "light"
+}
+
 // styleConfig resolves a style name to a concrete StyleConfig. The returned
 // bool is true for built-in styles (the "auto"/dark/light variants and any
 // name in glamour's DefaultStyles, e.g. notty/ascii/dracula/pink/tokyo-night);
