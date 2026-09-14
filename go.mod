@@ -1,6 +1,6 @@
 module github.com/atani/glowm
 
-go 1.26
+go 1.26.0
 
 require (
 	github.com/charmbracelet/glamour/v2 v2.0.0-20250327182001-9fa948b57fe4
@@ -9,7 +9,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.30
 	github.com/mattn/go-sixel v0.0.12
 	github.com/muesli/termenv v0.16.0
-	golang.org/x/term v0.45.0
+	golang.org/x/term v0.46.0
 )
 
 require (
@@ -39,6 +39,6 @@ require (
 	github.com/yuin/goldmark v1.7.8 // indirect
 	github.com/yuin/goldmark-emoji v1.0.5 // indirect
 	golang.org/x/net v0.55.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
 )
