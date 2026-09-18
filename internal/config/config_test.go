@@ -29,8 +29,11 @@ func TestLoad_DefaultsWhenNoFile(t *testing.T) {
 	t.Cleanup(func() { configPathFunc = origFunc })
 
 	cfg := Load()
-	if cfg.Pager.Mode != "more" {
-		t.Errorf("default mode = %q, want %q", cfg.Pager.Mode, "more")
+	if cfg.Pager.Mode != "less" {
+		t.Errorf("default mode = %q, want %q", cfg.Pager.Mode, "less")
+	}
+	if cfg.Mermaid.Theme != "auto" {
+		t.Errorf("default theme = %q, want %q", cfg.Mermaid.Theme, "auto")
 	}
 }
 
@@ -42,19 +45,19 @@ func TestLoad_VimMode(t *testing.T) {
 	}
 }
 
-func TestLoad_EmptyModeDefaultsToMore(t *testing.T) {
+func TestLoad_EmptyModeDefaultsToLess(t *testing.T) {
 	setupTestConfig(t, `{"pager": {"mode": ""}}`)
 	cfg := Load()
-	if cfg.Pager.Mode != "more" {
-		t.Errorf("mode = %q, want %q", cfg.Pager.Mode, "more")
+	if cfg.Pager.Mode != "less" {
+		t.Errorf("mode = %q, want %q", cfg.Pager.Mode, "less")
 	}
 }
 
 func TestLoad_InvalidJSON(t *testing.T) {
 	setupTestConfig(t, `{invalid json}`)
 	cfg := Load()
-	if cfg.Pager.Mode != "more" {
-		t.Errorf("mode = %q, want %q on invalid JSON", cfg.Pager.Mode, "more")
+	if cfg.Pager.Mode != "less" {
+		t.Errorf("mode = %q, want %q on invalid JSON", cfg.Pager.Mode, "less")
 	}
 }
 
@@ -75,11 +78,22 @@ func TestLoad_MoreMode(t *testing.T) {
 	}
 }
 
+func TestLoad_MermaidTheme(t *testing.T) {
+	setupTestConfig(t, `{"mermaid": {"theme": "dark"}}`)
+	cfg := Load()
+	if cfg.Mermaid.Theme != "dark" {
+		t.Errorf("theme = %q, want %q", cfg.Mermaid.Theme, "dark")
+	}
+}
+
 func TestLoad_EmptyConfig(t *testing.T) {
 	setupTestConfig(t, `{}`)
 	cfg := Load()
-	if cfg.Pager.Mode != "more" {
-		t.Errorf("mode = %q, want %q", cfg.Pager.Mode, "more")
+	if cfg.Pager.Mode != "less" {
+		t.Errorf("mode = %q, want %q", cfg.Pager.Mode, "less")
+	}
+	if cfg.Mermaid.Theme != "auto" {
+		t.Errorf("theme = %q, want %q", cfg.Mermaid.Theme, "auto")
 	}
 }
 
@@ -103,7 +117,7 @@ func TestLoad_ConfigPathError(t *testing.T) {
 	t.Cleanup(func() { configPathFunc = origFunc })
 
 	cfg := Load()
-	if cfg.Pager.Mode != "more" {
-		t.Errorf("mode = %q, want %q", cfg.Pager.Mode, "more")
+	if cfg.Pager.Mode != "less" {
+		t.Errorf("mode = %q, want %q", cfg.Pager.Mode, "less")
 	}
 }

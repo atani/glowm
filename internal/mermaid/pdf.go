@@ -16,12 +16,13 @@ const (
 	paperHeightIn = 11.69
 )
 
-func RenderPDF(diagrams []string) ([]byte, error) {
+func RenderPDF(diagrams []string, theme string) ([]byte, error) {
 	if len(diagrams) == 0 {
 		return nil, errors.New("no mermaid blocks found")
 	}
 
-	htmlDoc, _ := buildMermaidHTML(diagrams, htmlConfig{CSS: pdfCSS})
+	themeName, bg := resolveTheme(theme)
+	htmlDoc, _ := buildMermaidHTML(diagrams, htmlConfig{CSS: pdfCSS(bg), Theme: themeName})
 	pageURL, cleanup, err := serveHTML(htmlDoc)
 	if err != nil {
 		return nil, err

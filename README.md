@@ -89,6 +89,8 @@ Chrome or Chromium is required for Mermaid rendering and PDF export.
 - `--no-pager` Disable default pager; pager is on by default for TTY
 - `--pdf` Export Mermaid diagrams to PDF via stdout
 - `--show-link-urls` Show raw link URLs instead of just the link text (see [Links](#links))
+- `--watch` Watch the input file and re-render the pager when it changes (requires a file argument and a terminal)
+- `--no-watch` Disable watch, overriding the config default
 - `--version` Show version information
 
 ## Links
@@ -120,10 +122,45 @@ Example:
 ```json
 {
   "pager": {
-    "mode": "vim"
+    "mode": "less",
+    "watch": false
+  },
+  "mermaid": {
+    "theme": "auto"
   }
 }
 ```
+
+### `pager.mode`
+
+How the interactive pager behaves (default: `less`).
+
+- `less` — scrolls a line at a time (`j`/`k`, arrows, mouse wheel), with
+  half-page (`d`/`u`), page (`space`/`b`), `g`/`G` for top/bottom, and `/` `?`
+  `n` `N` search. On Kitty-graphics terminals (Kitty, Ghostty), inline Mermaid
+  diagrams scroll smoothly along with the text. This is the default.
+- `more` — simple forward paging (`space` to advance, `b` to go back).
+- `vim` — full-screen pager with a moving cursor line and Vim-style motions.
+
+### `pager.watch`
+
+When `true`, glowm watches the input file and re-renders the pager in place
+whenever the file changes — useful for editing a doc in one pane and previewing
+it in another (default: `false`). Equivalent to passing `--watch`; use
+`--no-watch` to override a `true` config for a single run. Only applies when
+reading a file (not stdin) to a terminal; otherwise glowm renders once and
+prints a note. Watch uses the `less` pager.
+
+### `mermaid.theme`
+
+Color theme for rendered Mermaid diagrams, applied to both inline images and
+`--pdf` export (default: `auto`).
+
+- `auto` — detect the terminal background and use `dark` on a dark background,
+  otherwise the light default. Falls back to light when the background can't be
+  detected (for example when exporting a PDF to a file). This is the default.
+- `light` (alias `default`), `dark`, `forest`, `neutral`, `base` — force a
+  specific [Mermaid theme](https://mermaid.js.org/config/theming.html).
 
 ## Requirements
 
