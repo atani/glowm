@@ -10,12 +10,13 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-func RenderPNGs(diagrams []string, widthCells int) ([][]byte, error) {
+func RenderPNGs(diagrams []string, widthCells int, theme string) ([][]byte, error) {
 	if len(diagrams) == 0 {
 		return nil, errors.New("no mermaid blocks found")
 	}
 
-	htmlDoc, ids := buildMermaidHTML(diagrams, htmlConfig{AssignIDs: true, CSS: pngCSS})
+	themeName, bg := resolveTheme(theme)
+	htmlDoc, ids := buildMermaidHTML(diagrams, htmlConfig{AssignIDs: true, CSS: pngCSS(bg), Theme: themeName})
 	pageURL, cleanup, err := serveHTML(htmlDoc)
 	if err != nil {
 		return nil, err

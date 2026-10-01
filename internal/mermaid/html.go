@@ -14,14 +14,52 @@ import (
 //go:embed mermaid.min.js
 var mermaidJS string
 
-const (
-	pdfCSS = "body{font-family:Arial,Helvetica,sans-serif;padding:24px;background:#fff;} .mermaid{margin:24px 0;}"
-	pngCSS = "body{font-family:Arial,Helvetica,sans-serif;padding:24px;background:#fff;width:100%;} .mermaid{margin:24px 0;width:100%;} svg{width:100%;height:auto;font-size:20px;} svg text{font-size:20px !important;} .label{font-size:20px !important;}"
-)
+func pdfCSS(bg string) string {
+	return "body{font-family:Arial,Helvetica,sans-serif;padding:24px;background:" + bg + ";} .mermaid{margin:24px 0;}"
+}
+
+func pngCSS(bg string) string {
+	return "body{font-family:Arial,Helvetica,sans-serif;padding:24px;background:" + bg + ";width:100%;} .mermaid{margin:24px 0;width:100%;} svg{width:100%;height:auto;font-size:20px;} svg text{font-size:20px !important;} .label{font-size:20px !important;}"
+}
+
+// resolveTheme maps a user-supplied theme name to a canonical Mermaid theme and
+// a matching page background. Unknown names fall back to the default theme. The
+// returned theme is always one of a fixed set of safe literals, so it is safe to
+// interpolate into the init script.
+func resolveTheme(name string) (theme, background string) {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "dark":
+		return "dark", "#1e1e1e"
+	case "forest":
+		return "forest", "#ffffff"
+	case "neutral":
+		return "neutral", "#ffffff"
+	case "base":
+		return "base", "#ffffff"
+	default: // "", "light", "default", or anything unrecognized
+		return "default", "#ffffff"
+	}
+}
+
+// IsKnownTheme reports whether name is a recognized Mermaid theme (so callers
+// can warn on a typo rather than silently falling back to the default). "auto"
+// means "detect from the terminal background" and is resolved by the caller
+// before reaching resolveTheme.
+func IsKnownTheme(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "", "auto", "light", "default", "dark", "forest", "neutral", "base":
+		return true
+	default:
+		return false
+	}
+}
 
 type htmlConfig struct {
 	AssignIDs bool
 	CSS       string
+	// Theme is a canonical Mermaid theme name (from resolveTheme); safe to
+	// interpolate into the init script.
+	Theme string
 }
 
 func buildMermaidHTML(diagrams []string, cfg htmlConfig) (string, []string) {
@@ -52,17 +90,20 @@ func buildMermaidHTML(diagrams []string, cfg htmlConfig) (string, []string) {
 	b.WriteString(mermaidJS)
 	b.WriteString("\n</script>\n")
 	fmt.Fprintf(&b, "<script nonce=\"%s\">\n", nonce)
-	b.WriteString(mermaidInitScript())
+	b.WriteString(mermaidInitScript(cfg.Theme))
 	b.WriteString("</script>\n")
 	b.WriteString("</body></html>")
 
 	return b.String(), ids
 }
 
-func mermaidInitScript() string {
+func mermaidInitScript(theme string) string {
+	if theme == "" {
+		theme = "default"
+	}
 	return "window.__MERMAID_DONE__ = false; window.__MERMAID_ERROR__ = '';\n" +
 		"(async function(){\n" +
-		"try { mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' }); await mermaid.run({ querySelector: '.mermaid' }); window.__MERMAID_DONE__ = true; }\n" +
+		"try { mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: '" + theme + "' }); await mermaid.run({ querySelector: '.mermaid' }); window.__MERMAID_DONE__ = true; }\n" +
 		"catch(e){ window.__MERMAID_ERROR__ = (e && e.message) ? e.message : String(e); }\n" +
 		"})();\n"
 }
