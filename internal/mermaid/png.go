@@ -25,16 +25,19 @@ func RenderPNGs(diagrams []string, widthCells int) ([][]byte, error) {
 	ctx, cancel := newBrowserContext(30 * time.Second)
 	defer cancel()
 
-	var (
-		renderErr string
-		pollDone  bool
-	)
-	if err := chromedp.Run(ctx,
-		emulation.SetDeviceMetricsOverride(viewportWidth(widthCells), 900, 1, false),
-		chromedp.Navigate(pageURL),
-		chromedp.Poll("window.__MERMAID_DONE__ === true || !!window.__MERMAID_ERROR__", &pollDone, chromedp.WithPollingInterval(100*time.Millisecond)),
-		chromedp.Evaluate("window.__MERMAID_ERROR__", &renderErr),
-	); err != nil {
+	if _, err := chromedp.Call(ctx, emulation.SetDeviceMetricsOverride, emulation.SetDeviceMetricsOverrideParams{
+		Width: viewportWidth(widthCells), Height: 900, DeviceScaleFactor: 1, Mobile: false,
+	}); err != nil {
+		return nil, err
+	}
+	if err := chromedp.Do(ctx, chromedp.Navigate(pageURL)); err != nil {
+		return nil, err
+	}
+	if _, err := chromedp.Run(ctx, chromedp.Poll[bool]("window.__MERMAID_DONE__ === true || !!window.__MERMAID_ERROR__", chromedp.WithPollingInterval(100*time.Millisecond))); err != nil {
+		return nil, err
+	}
+	renderErr, err := chromedp.Run(ctx, chromedp.Evaluate[string]("window.__MERMAID_ERROR__"))
+	if err != nil {
 		return nil, err
 	}
 	if strings.TrimSpace(renderErr) != "" {
@@ -43,11 +46,8 @@ func RenderPNGs(diagrams []string, widthCells int) ([][]byte, error) {
 
 	results := make([][]byte, 0, len(ids))
 	for _, id := range ids {
-		var buf []byte
-		sel := "#" + id
-		if err := chromedp.Run(ctx,
-			chromedp.Screenshot(sel, &buf, chromedp.NodeVisible, chromedp.ByID),
-		); err != nil {
+		buf, err := chromedp.Run(ctx, chromedp.Screenshot(chromedp.ID(id), chromedp.NodeVisible))
+		if err != nil {
 			return nil, err
 		}
 		results = append(results, buf)
