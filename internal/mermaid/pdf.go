@@ -1,7 +1,6 @@
 package mermaid
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -31,37 +30,27 @@ func RenderPDF(diagrams []string) ([]byte, error) {
 	ctx, cancel := newBrowserContext(30 * time.Second)
 	defer cancel()
 
-	var (
-		renderErr string
-		pollDone  bool
-	)
-	if err := chromedp.Run(ctx,
-		chromedp.Navigate(pageURL),
-		chromedp.Poll("window.__MERMAID_DONE__ === true || !!window.__MERMAID_ERROR__", &pollDone, chromedp.WithPollingInterval(100*time.Millisecond)),
-		chromedp.Evaluate("window.__MERMAID_ERROR__", &renderErr),
-	); err != nil {
+	if err := chromedp.Do(ctx, chromedp.Navigate(pageURL)); err != nil {
+		return nil, err
+	}
+	if _, err := chromedp.Run(ctx, chromedp.Poll[bool]("window.__MERMAID_DONE__ === true || !!window.__MERMAID_ERROR__", chromedp.WithPollingInterval(100*time.Millisecond))); err != nil {
+		return nil, err
+	}
+	renderErr, err := chromedp.Run(ctx, chromedp.Evaluate[string]("window.__MERMAID_ERROR__"))
+	if err != nil {
 		return nil, err
 	}
 	if strings.TrimSpace(renderErr) != "" {
 		return nil, fmt.Errorf("mermaid render failed: %s", renderErr)
 	}
 
-	var pdfBytes []byte
-	if err := chromedp.Run(ctx,
-		chromedp.ActionFunc(func(ctx context.Context) error {
-			buf, _, err := page.PrintToPDF().
-				WithPrintBackground(true).
-				WithPaperWidth(paperWidthIn).
-				WithPaperHeight(paperHeightIn).
-				Do(ctx)
-			if err != nil {
-				return err
-			}
-			pdfBytes = buf
-			return nil
-		}),
-	); err != nil {
+	result, err := chromedp.Call(ctx, page.PrintToPDF, page.PrintToPDFParams{
+		PrintBackground: new(true),
+		PaperWidth:      paperWidthIn,
+		PaperHeight:     paperHeightIn,
+	})
+	if err != nil {
 		return nil, err
 	}
-	return pdfBytes, nil
+	return result.Data, nil
 }
