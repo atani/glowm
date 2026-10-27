@@ -33,7 +33,7 @@ func TestViewportWidth_Normal(t *testing.T) {
 
 func TestBuildMermaidHTML_WithIDs(t *testing.T) {
 	diagrams := []string{"A-->B", "C-->D"}
-	html, ids := buildMermaidHTML(diagrams, htmlConfig{AssignIDs: true, CSS: pngCSS})
+	html, ids := buildMermaidHTML(diagrams, htmlConfig{AssignIDs: true, CSS: pngCSS("#ffffff")})
 
 	if len(ids) != 2 {
 		t.Fatalf("expected 2 IDs, got %d", len(ids))
@@ -69,7 +69,7 @@ func TestBuildMermaidHTML_WithIDs(t *testing.T) {
 
 func TestBuildMermaidHTML_PDF(t *testing.T) {
 	diagrams := []string{"X-->Y"}
-	html, ids := buildMermaidHTML(diagrams, htmlConfig{CSS: pdfCSS})
+	html, ids := buildMermaidHTML(diagrams, htmlConfig{CSS: pdfCSS("#ffffff")})
 
 	if len(ids) != 0 {
 		t.Fatalf("expected 0 IDs for PDF mode, got %d", len(ids))
@@ -89,7 +89,7 @@ func TestBuildMermaidHTML_PDF(t *testing.T) {
 }
 
 func TestRenderPNGs_EmptyDiagrams(t *testing.T) {
-	_, err := RenderPNGs(nil, 80)
+	_, err := RenderPNGs(nil, 80, "")
 	if err == nil {
 		t.Fatal("expected error for empty diagrams")
 	}
@@ -106,7 +106,7 @@ func TestRenderPNGs(t *testing.T) {
 		t.Skip("chrome/chromium not available")
 	}
 
-	pngs, err := RenderPNGs([]string{"flowchart TD\n  A-->B"}, 80)
+	pngs, err := RenderPNGs([]string{"flowchart TD\n  A-->B"}, 80, "")
 	if err != nil {
 		t.Fatalf("render failed: %v", err)
 	}
