@@ -2,8 +2,6 @@ package mermaid
 
 import (
 	"errors"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/chromedp/cdproto/emulation"
@@ -30,18 +28,8 @@ func RenderPNGs(diagrams []string, widthCells int) ([][]byte, error) {
 	}); err != nil {
 		return nil, err
 	}
-	if err := chromedp.Do(ctx, chromedp.Navigate(pageURL)); err != nil {
+	if err := renderPage(ctx, pageURL); err != nil {
 		return nil, err
-	}
-	if _, err := chromedp.Run(ctx, chromedp.Poll[bool]("window.__MERMAID_DONE__ === true || !!window.__MERMAID_ERROR__", chromedp.WithPollingInterval(100*time.Millisecond))); err != nil {
-		return nil, err
-	}
-	renderErr, err := chromedp.Run(ctx, chromedp.Evaluate[string]("window.__MERMAID_ERROR__"))
-	if err != nil {
-		return nil, err
-	}
-	if strings.TrimSpace(renderErr) != "" {
-		return nil, fmt.Errorf("mermaid render failed: %s", renderErr)
 	}
 
 	results := make([][]byte, 0, len(ids))
