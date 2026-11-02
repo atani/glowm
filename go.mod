@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/charmbracelet/glamour/v2 v2.0.0-20250327182001-9fa948b57fe4
-	github.com/chromedp/cdproto v0.157.8
+	github.com/chromedp/cdproto v0.158.6
 	github.com/chromedp/chromedp v0.21.0
 	github.com/mattn/go-runewidth v0.0.31
 	github.com/mattn/go-sixel v0.0.14
