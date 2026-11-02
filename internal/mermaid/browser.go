@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/chromedp/chromedp"
@@ -37,6 +38,24 @@ func newBrowserContext(timeout time.Duration) (context.Context, context.CancelFu
 		cancel()
 		allocCancel()
 	}
+}
+
+// renderPage waits for Mermaid and propagates navigation, protocol and parser errors.
+func renderPage(ctx context.Context, pageURL string) error {
+	if err := chromedp.Do(ctx, chromedp.Navigate(pageURL)); err != nil {
+		return err
+	}
+	if _, err := chromedp.Run(ctx, chromedp.Poll[bool]("window.__MERMAID_DONE__ === true || !!window.__MERMAID_ERROR__", chromedp.WithPollingInterval(100*time.Millisecond))); err != nil {
+		return err
+	}
+	renderErr, err := chromedp.Run(ctx, chromedp.Evaluate[string]("window.__MERMAID_ERROR__"))
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(renderErr) != "" {
+		return fmt.Errorf("mermaid render failed: %s", renderErr)
+	}
+	return nil
 }
 
 // serveHTML starts a loopback HTTP server that serves content as a single page,
