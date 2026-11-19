@@ -9,12 +9,23 @@ import (
 
 // Config holds the application configuration.
 type Config struct {
-	Pager PagerConfig `json:"pager"`
+	Pager   PagerConfig   `json:"pager"`
+	Mermaid MermaidConfig `json:"mermaid"`
 }
 
 // PagerConfig holds pager-specific settings.
 type PagerConfig struct {
 	Mode string `json:"mode"`
+	// Watch re-renders and refreshes the pager when the input file changes.
+	// Only applies when reading a file (not stdin) to a terminal.
+	Watch bool `json:"watch"`
+}
+
+// MermaidConfig holds Mermaid diagram rendering settings.
+type MermaidConfig struct {
+	// Theme selects the Mermaid color theme: "light"/"default", "dark",
+	// "forest", "neutral", or "base". Empty means default.
+	Theme string `json:"theme"`
 }
 
 // configPathFunc is the function used to determine the config file path.
@@ -27,7 +38,10 @@ var configPathFunc = configPath
 func Load() Config {
 	defaultCfg := Config{
 		Pager: PagerConfig{
-			Mode: "more",
+			Mode: "less",
+		},
+		Mermaid: MermaidConfig{
+			Theme: "auto",
 		},
 	}
 
@@ -46,7 +60,10 @@ func Load() Config {
 		return defaultCfg
 	}
 	if cfg.Pager.Mode == "" {
-		cfg.Pager.Mode = "more"
+		cfg.Pager.Mode = "less"
+	}
+	if cfg.Mermaid.Theme == "" {
+		cfg.Mermaid.Theme = "auto"
 	}
 	return cfg
 }

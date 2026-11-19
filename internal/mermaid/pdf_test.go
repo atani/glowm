@@ -15,7 +15,7 @@ func TestRenderPDF(t *testing.T) {
 		t.Skip("chrome/chromium not available")
 	}
 
-	pdf, err := RenderPDF([]string{"flowchart TD\n  A-->B"})
+	pdf, err := RenderPDF([]string{"flowchart TD\n  A-->B"}, "")
 	if err != nil {
 		t.Fatalf("render failed: %v", err)
 	}
@@ -32,7 +32,7 @@ func TestRenderPDF_MultipleDiagrams(t *testing.T) {
 		t.Skip("chrome/chromium not available")
 	}
 
-	pdf, err := RenderPDF([]string{"flowchart TD\n  A-->B", "flowchart TD\n  C-->D"})
+	pdf, err := RenderPDF([]string{"flowchart TD\n  A-->B", "flowchart TD\n  C-->D"}, "")
 	if err != nil {
 		t.Fatalf("render failed: %v", err)
 	}
@@ -42,7 +42,7 @@ func TestRenderPDF_MultipleDiagrams(t *testing.T) {
 }
 
 func TestRenderPDF_EmptyDiagrams(t *testing.T) {
-	_, err := RenderPDF(nil)
+	_, err := RenderPDF(nil, "")
 	if err == nil {
 		t.Fatal("expected error for empty diagrams")
 	}

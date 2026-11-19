@@ -155,7 +155,7 @@ func TestRun_PDFFlagNoBlocks(t *testing.T) {
 
 func TestRunPDF_NoMermaidBlocks(t *testing.T) {
 	var out, errBuf bytes.Buffer
-	code := runPDF("# Just text, no diagrams\n", &out, &errBuf)
+	code := runPDF("# Just text, no diagrams\n", "", &out, &errBuf)
 	if code != 1 {
 		t.Errorf("code = %d, want 1 when no mermaid blocks", code)
 	}

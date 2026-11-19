@@ -15,12 +15,13 @@ type Mode string
 const (
 	ModeMore Mode = "more"
 	ModeVim  Mode = "vim"
+	ModeLess Mode = "less"
 )
 
 // ValidMode returns true if the given mode is recognized.
 func ValidMode(m Mode) bool {
 	switch m {
-	case ModeMore, ModeVim:
+	case ModeMore, ModeVim, ModeLess:
 		return true
 	default:
 		return false
@@ -32,6 +33,8 @@ func PageWithMode(output string, mode Mode) error {
 	switch mode {
 	case ModeVim:
 		return pageVim(output)
+	case ModeLess:
+		return pageLess(output)
 	default:
 		return pageMore(output)
 	}
